@@ -1,0 +1,108 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "blitz-api-py"
+dynamic = ["version"]
+description = "Typed Python SDK for the Blitz API — B2B data, search, and enrichment."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Blitz API", email = "support@blitz-api.ai" }]
+keywords = ["blitz", "blitz-api", "b2b", "enrichment", "linkedin", "sales", "gtm", "sdk"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = [
+    "httpx>=0.28,<1",
+    "pydantic>=2.13,<3",
+    "typing-extensions>=4.10",
+]
+
+[project.urls]
+Homepage = "https://blitz-api.ai"
+Documentation = "https://docs.blitz-api.ai"
+Repository = "https://github.com/blitz-api/blitz-api-py"
+Issues = "https://github.com/blitz-api/blitz-api-py/issues"
+Changelog = "https://github.com/blitz-api/blitz-api-py/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15",
+    "mypy>=2.1",
+    "pyright>=1.1.390",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-httpx>=0.35",
+    "pytest-cov>=6.0",
+]
+
+[tool.hatch.version]
+path = "src/blitz_api/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/blitz_api"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/blitz_api", "README.md", "LICENSE", "CHANGELOG.md"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests", "scripts", "examples"]
+target-version = "py310"
+# The enum module is machine-generated (scripts/gen_enums.py owns its formatting,
+# verified by a drift guard); keep ruff from reformatting it. mypy/pyright still check it.
+extend-exclude = ["src/blitz_api/types/enums.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "SIM", "PIE", "RUF"]
+# RUF022: __all__ is intentionally grouped by category, not alphabetized.
+ignore = ["RUF022"]
+
+[tool.ruff.lint.per-file-ignores]
+# RUF012: `= []` defaults are safe on Pydantic models (deep-copied per instance)
+# and keep pyright strict happy (it infers the type from the field annotation).
+"src/blitz_api/types/*.py" = ["RUF012"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["blitz_api"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unreachable = true
+warn_redundant_casts = true
+plugins = ["pydantic.mypy"]
+files = ["src", "tests", "scripts", "examples"]
+
+[tool.pyright]
+include = ["src", "tests", "examples"]
+pythonVersion = "3.10"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+# Resources intentionally call the client's internal `_request` across modules;
+# this is internal encapsulation, not a public-API typing concern (mypy allows it).
+reportPrivateUsage = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+
+[tool.coverage.run]
+source = ["blitz_api"]
+branch = true
