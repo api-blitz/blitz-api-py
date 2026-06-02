@@ -1,0 +1,67 @@
+"""Client-side sliding-window rate limiter (async source; sync twin generated).
+
+The API enforces a per-key request rate (5 req/s by default). This limiter throttles
+outgoing requests *before* they are sent so a single client instance stays under the
+limit proactively; the server-side 429 retry path is the backstop for bursts across
+processes.
+
+The algorithm is a sliding window: at most ``rps`` requests may begin in any rolling
+one-second window. This matches the Blitz docs ("max 5 requests per 1000 ms") and the
+official reference client. Unlike a token bucket — whose initial capacity lets a fresh
+client fire ``rps`` requests *and* refill within the same second, briefly doubling the
+rate — a sliding window never exceeds ``rps`` in any one-second window, including the
+first. ``rps`` tracks the API's integer ``max_requests_per_seconds``; a fractional value
+is floored to a per-second integer budget (minimum 1). The clock and sleep are injectable
+so tests can drive them with a fake clock.
+
+The synchronous ``RateLimiter`` in ``_rate_limit_sync.py`` is generated from this file by
+``scripts/gen_sync.py`` — edit this source, never the generated twin.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import time
+from collections import deque
+from collections.abc import Callable
+
+from ._compat import AsyncSleep
+
+#: Width of the rolling window, in seconds.
+_WINDOW = 1.0
+
+
+class AsyncRateLimiter:
+    """Sliding-window limiter, safe to share across concurrent callers."""
+
+    def __init__(
+        self,
+        rps: float | None,
+        *,
+        monotonic: Callable[[], float] = time.monotonic,
+        sleep: AsyncSleep = asyncio.sleep,
+    ) -> None:
+        self.rps = rps
+        # Integer request budget per window. ``rps`` is typed ``float`` for ergonomics, but
+        # the deque admission below counts whole requests, so floor it (min 1 when enabled).
+        self._budget = max(1, int(rps)) if rps else 0
+        self._sends: deque[float] = deque()
+        self._lock = asyncio.Lock()
+        self._monotonic = monotonic
+        self._sleep = sleep
+
+    async def acquire(self) -> None:
+        """Wait until a request may be sent under the rolling-window limit."""
+        if not self.rps:
+            return
+        while True:
+            async with self._lock:
+                now = self._monotonic()
+                cutoff = now - _WINDOW
+                while self._sends and self._sends[0] <= cutoff:
+                    self._sends.popleft()
+                if len(self._sends) < self._budget:
+                    self._sends.append(now)
+                    return
+                wait = self._sends[0] + _WINDOW - now
+            await self._sleep(max(0.0, wait))
