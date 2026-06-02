@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/api-blitz/blitz-api-py/compare/v0.1.0...v0.2.0) (2026-06-02)
+
+
+### Features
+
+* cursor guard, page.collect(), and typed waterfall-icp fields ([#7](https://github.com/api-blitz/blitz-api-py/issues/7)) ([b77cdff](https://github.com/api-blitz/blitz-api-py/commit/b77cdffc99c680c2a37d36c8d22ee4c5381e8c68))
+
 ## [0.1.0](https://github.com/api-blitz/blitz-api-py/compare/v0.1.0...v0.1.0) (2026-06-02)
 
 
