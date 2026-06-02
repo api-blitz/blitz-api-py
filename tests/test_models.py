@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
+from blitz_api import CursorPage, PageNumberPage
 from blitz_api.types import (
+    Company,
     CompanyEmploymentDistributionResponse,
     CompanyEnrichmentResponse,
-    CompanySearchResponse,
     CurrentDateResponse,
     DomainToLinkedinResponse,
     EmailEnrichmentResponse,
     EmailToPersonResponse,
-    EmployeeFinderResponse,
     KeyInfo,
     LinkedinToDomainResponse,
-    PeopleSearchResponse,
+    Person,
     PhoneEnrichmentResponse,
     PhoneToPersonResponse,
     WaterfallIcpResponse,
@@ -30,7 +30,7 @@ def test_key_info_parses() -> None:
 
 
 def test_people_search_parses_nested_person() -> None:
-    resp = PeopleSearchResponse.model_validate(data.PEOPLE_SEARCH)
+    resp = CursorPage[Person].model_validate(data.PEOPLE_SEARCH)
     assert resp.total_results == 14337505
     person = resp.results[0]
     assert person.full_name == "Beulah Lee"
@@ -45,7 +45,7 @@ def test_people_search_parses_nested_person() -> None:
 
 
 def test_company_search_parses() -> None:
-    resp = CompanySearchResponse.model_validate(data.COMPANY_SEARCH)
+    resp = CursorPage[Company].model_validate(data.COMPANY_SEARCH)
     company = resp.results[0]
     assert company.name == "Google"
     assert company.linkedin_id == 1441
@@ -55,7 +55,7 @@ def test_company_search_parses() -> None:
 
 
 def test_employee_finder_is_page_paginated() -> None:
-    resp = EmployeeFinderResponse.model_validate(data.EMPLOYEE_FINDER)
+    resp = PageNumberPage[Person].model_validate(data.EMPLOYEE_FINDER)
     assert resp.page == 1
     assert resp.total_pages == 1285
     assert resp.results[0].first_name == "Beulah"

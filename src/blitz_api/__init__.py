@@ -18,6 +18,7 @@ from __future__ import annotations
 from ._client import AsyncBlitzAPI, BlitzAPI
 from ._exceptions import (
     APIConnectionError,
+    APIResponseValidationError,
     APIStatusError,
     APITimeoutError,
     AuthenticationError,
@@ -27,6 +28,8 @@ from ._exceptions import (
     RateLimitError,
     ServerError,
 )
+from ._pagination_async import AsyncCursorPage, AsyncPageNumberPage
+from ._pagination_sync import CursorPage, PageNumberPage
 from ._version import __version__
 from .types import (
     CompanyFilter,
@@ -39,10 +42,16 @@ __all__ = [
     # clients
     "BlitzAPI",
     "AsyncBlitzAPI",
+    # pagination (returned by the search.* methods)
+    "CursorPage",
+    "AsyncCursorPage",
+    "PageNumberPage",
+    "AsyncPageNumberPage",
     # exceptions
     "BlitzError",
     "APIConnectionError",
     "APITimeoutError",
+    "APIResponseValidationError",
     "APIStatusError",
     "AuthenticationError",
     "InsufficientCreditsError",

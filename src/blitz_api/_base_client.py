@@ -9,14 +9,18 @@ from __future__ import annotations
 
 import os
 import random
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from enum import Enum
 from typing import Any, TypeVar, cast
 from urllib.parse import urljoin
 
 import httpx
+from pydantic import ValidationError
 
 from . import _constants as C
 from ._exceptions import (
+    APIResponseValidationError,
     APIStatusError,
     AuthenticationError,
     BlitzError,
@@ -54,6 +58,28 @@ def to_jsonable(value: Any) -> Any:
         sequence = cast("list[Any]", value)
         return [to_jsonable(v) for v in sequence]
     return value
+
+
+def _retry_after_seconds(raw: str | None) -> float:
+    """Parse a ``Retry-After`` header (delta-seconds or HTTP-date) into seconds.
+
+    Falls back to :data:`DEFAULT_RETRY_AFTER_SECONDS` when the header is absent or
+    unparseable. The caller clamps the result to a maximum.
+    """
+    if not raw:
+        return C.DEFAULT_RETRY_AFTER_SECONDS
+    raw = raw.strip()
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        pass
+    try:
+        when = parsedate_to_datetime(raw)
+    except (TypeError, ValueError):
+        return C.DEFAULT_RETRY_AFTER_SECONDS
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return max(0.0, (when - datetime.now(timezone.utc)).total_seconds())
 
 
 class BaseClient:
@@ -95,6 +121,19 @@ class BaseClient:
     def _should_retry(status_code: int) -> bool:
         return status_code == 429 or status_code >= 500
 
+    @staticmethod
+    def _should_retry_exception(exc: httpx.RequestError) -> bool:
+        """Whether a transport-level error is safe to retry.
+
+        Only failures where the request never reached the server are retried, so a
+        retry cannot double-process (or double-bill) a request. A connect timeout,
+        connection error, or pool timeout means nothing was sent. A *read* or *write*
+        timeout means the request may already have been received and processed by the
+        server — retrying a billable POST there could charge the caller twice — so
+        those are surfaced immediately instead.
+        """
+        return isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout))
+
     def _backoff_seconds(self, attempt: int) -> float:
         """Exponential backoff with full jitter (attempt starts at 1)."""
         base = min(8.0, 0.5 * 2.0 ** (attempt - 1))
@@ -102,13 +141,8 @@ class BaseClient:
 
     def _retry_delay(self, response: httpx.Response, attempt: int) -> float:
         if response.status_code == 429:
-            retry_after = response.headers.get("retry-after")
-            if retry_after:
-                try:
-                    return float(retry_after)
-                except ValueError:
-                    pass
-            return C.DEFAULT_RETRY_AFTER_SECONDS
+            seconds = _retry_after_seconds(response.headers.get("retry-after"))
+            return min(seconds, C.MAX_RETRY_WAIT_SECONDS)
         return self._backoff_seconds(attempt)
 
     # -- response handling ----------------------------------------------
@@ -138,4 +172,20 @@ class BaseClient:
 
     @staticmethod
     def _parse_model(response: httpx.Response, cast_to: type[ResponseT]) -> ResponseT:
-        return cast_to.model_validate(response.json())
+        try:
+            data = response.json()
+        except ValueError as exc:
+            content_type = response.headers.get("content-type", "an unknown content type")
+            raise APIResponseValidationError(
+                f"Expected a JSON response body from {response.request.url}, got {content_type}.",
+                response=response,
+            ) from exc
+        try:
+            return cast_to.model_validate(data)
+        except ValidationError as exc:
+            # Parametrized generics (e.g. CursorPage[Person]) may lack ``__name__``.
+            name = getattr(cast_to, "__name__", str(cast_to))
+            raise APIResponseValidationError(
+                f"Response body did not match {name}.",
+                response=response,
+            ) from exc

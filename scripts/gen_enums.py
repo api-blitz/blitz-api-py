@@ -56,17 +56,25 @@ def slug(value: str) -> str:
 
 
 def member_names(values: list[str]) -> list[tuple[str, str]]:
-    """Map each value to a unique member name, disambiguating collisions."""
-    seen: dict[str, int] = {}
+    """Map each value to a unique member name, disambiguating collisions.
+
+    A disambiguated ``BASE_N`` name can itself collide with a *different* value whose
+    slug already is ``BASE_N`` (e.g. values that slug to ``X`` twice plus a value that
+    slugs to ``X_2``). Checking only a per-base counter would then emit two identical
+    member names, which makes the generated ``Enum`` raise ``TypeError`` on import. So
+    each candidate is checked against every name already assigned and the suffix is
+    advanced until it is unique.
+    """
+    used: set[str] = set()
     out: list[tuple[str, str]] = []
     for value in values:
         base = slug(value)
-        if base in seen:
-            seen[base] += 1
-            name = f"{base}_{seen[base]}"
-        else:
-            seen[base] = 1
-            name = base
+        name = base
+        suffix = 2
+        while name in used:
+            name = f"{base}_{suffix}"
+            suffix += 1
+        used.add(name)
         out.append((name, value))
     return out
 

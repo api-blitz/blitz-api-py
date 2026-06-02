@@ -94,6 +94,38 @@ Every method returns a typed Pydantic model (see `blitz_api.types`). Enum-backed
 filter fields (e.g. `Industry`, `JobLevel`, `Continent`) accept either an enum
 member or a raw string.
 
+## Pagination
+
+The search methods return an **auto-paginating page**: iterate it and the SDK fetches
+each subsequent page for you. `search.people`/`search.companies` are cursor-based;
+`search.employee_finder` is page-based — both behave identically here.
+
+```python
+# Iterate every matching person across all pages — no cursor handling needed.
+for person in client.search.people(people={"job_level": ["VP"]}):
+    print(person.full_name)
+
+# Async works the same way.
+async for person in await async_client.search.people(people={"job_level": ["VP"]}):
+    ...
+
+# Bound how much you pull.
+for person in client.search.people(...).auto_paging_iter(max_items=200):
+    ...
+
+# Per-page control: inspect totals / cursors as you go.
+for page in client.search.companies(company={...}).iter_pages(max_pages=5):
+    print(page.total_results, len(page.results), page.cursor)
+
+# Or page manually.
+page = client.search.people(people={...}, max_results=50)
+print(page.results, page.cursor)
+nxt = page.get_next_page()        # None once exhausted
+```
+
+The page types (`CursorPage`, `PageNumberPage`, and their `Async*` variants) are
+exported from `blitz_api`.
+
 ## Configuration
 
 ```python
@@ -106,10 +138,18 @@ client = BlitzAPI(
 )
 ```
 
-The client-side rate limiter throttles a single client instance to stay under the
-API's limit (5 req/s by default; check your key's limit via
-`client.account.key_info().max_requests_per_seconds`). Across multiple processes
-you may still hit `429` — the retry path handles that.
+The client-side rate limiter is a sliding window — at most `rate_limit_rps` requests
+in any rolling second — so a single client instance stays under the API's limit (5 req/s
+by default; check your key's limit via
+`client.account.key_info().max_requests_per_seconds`). Across multiple processes you may
+still hit `429` — the retry path handles that.
+
+Every method also accepts a per-call `timeout` (seconds or an `httpx.Timeout`) when one
+endpoint needs longer than the client default:
+
+```python
+client.search.people(people={"job_level": ["VP"]}, timeout=10.0)
+```
 
 ## Error handling
 
@@ -117,6 +157,7 @@ you may still hit `429` — the retry path handles that.
 from blitz_api import (
     BlitzError, AuthenticationError, InsufficientCreditsError,
     NotFoundError, RateLimitError, APIStatusError, APIConnectionError,
+    APITimeoutError, APIResponseValidationError,
 )
 
 try:
@@ -127,12 +168,16 @@ except AuthenticationError:
     ...                            # 401 — bad key
 except APIStatusError as err:
     print(err.status_code, err.message, err.body)
+except APIResponseValidationError:
+    ...                            # 2xx whose body wasn't valid / didn't match the model
 except BlitzError:
     ...                            # base class for everything this SDK raises
 ```
 
 `429` and `5xx` are retried automatically (with backoff) up to `max_retries`;
-`401`/`402`/`404` raise immediately.
+`401`/`402`/`404` raise immediately. Connect timeouts and connection errors are retried,
+but a **read timeout is not** — the server may already have processed (and billed) the
+request, so it surfaces as `APITimeoutError` rather than risking a double charge.
 
 ## Development
 

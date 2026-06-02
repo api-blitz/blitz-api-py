@@ -40,9 +40,6 @@ from .filters import (
     RangeFilter,
 )
 from .search import (
-    CompanySearchResponse,
-    EmployeeFinderResponse,
-    PeopleSearchResponse,
     WaterfallIcpMatch,
     WaterfallIcpResponse,
 )
@@ -92,10 +89,7 @@ __all__ = [
     # account
     "KeyInfo",
     "ActivePlan",
-    # search
-    "PeopleSearchResponse",
-    "CompanySearchResponse",
-    "EmployeeFinderResponse",
+    # search (paginated results return the page classes exported from `blitz_api`)
     "WaterfallIcpMatch",
     "WaterfallIcpResponse",
     # enrichment

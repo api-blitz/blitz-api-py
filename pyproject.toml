@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "Blitz API", email = "support@blitz-api.ai" }]
+authors = [{ name = "Blitz API", email = "founders@blitz-api.ai" }]
 keywords = ["blitz", "blitz-api", "b2b", "enrichment", "linkedin", "sales", "gtm", "sdk"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -35,9 +35,9 @@ dependencies = [
 [project.urls]
 Homepage = "https://blitz-api.ai"
 Documentation = "https://docs.blitz-api.ai"
-Repository = "https://github.com/blitz-api/blitz-api-py"
-Issues = "https://github.com/blitz-api/blitz-api-py/issues"
-Changelog = "https://github.com/blitz-api/blitz-api-py/blob/main/CHANGELOG.md"
+Repository = "https://github.com/api-blitz/blitz-api-py"
+Issues = "https://github.com/api-blitz/blitz-api-py/issues"
+Changelog = "https://github.com/api-blitz/blitz-api-py/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = [
@@ -48,6 +48,7 @@ dev = [
     "pytest-asyncio>=0.24",
     "pytest-httpx>=0.35",
     "pytest-cov>=6.0",
+    "tokenize-rt>=6.2.0",
 ]
 
 [tool.hatch.version]
@@ -63,9 +64,17 @@ include = ["src/blitz_api", "README.md", "LICENSE", "CHANGELOG.md"]
 line-length = 100
 src = ["src", "tests", "scripts", "examples"]
 target-version = "py310"
-# The enum module is machine-generated (scripts/gen_enums.py owns its formatting,
-# verified by a drift guard); keep ruff from reformatting it. mypy/pyright still check it.
-extend-exclude = ["src/blitz_api/types/enums.py"]
+# Machine-generated modules own their own formatting (a drift guard verifies them);
+# keep ruff from reformatting them. mypy/pyright still type-check them.
+#   - types/enums.py            <- scripts/gen_enums.py
+#   - *_sync.py + _sync/        <- scripts/gen_sync.py (transliterated from the async source)
+extend-exclude = [
+    "src/blitz_api/types/enums.py",
+    "src/blitz_api/_client_sync.py",
+    "src/blitz_api/_pagination_sync.py",
+    "src/blitz_api/_rate_limit_sync.py",
+    "src/blitz_api/resources/_sync",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "C4", "SIM", "PIE", "RUF"]
@@ -76,6 +85,7 @@ ignore = ["RUF022"]
 # RUF012: `= []` defaults are safe on Pydantic models (deep-copied per instance)
 # and keep pyright strict happy (it infers the type from the field annotation).
 "src/blitz_api/types/*.py" = ["RUF012"]
+"src/blitz_api/_pagination_async.py" = ["RUF012"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["blitz_api"]
@@ -87,6 +97,17 @@ warn_unreachable = true
 warn_redundant_casts = true
 plugins = ["pydantic.mypy"]
 files = ["src", "tests", "scripts", "examples"]
+
+# tokenize-rt (used only by scripts/gen_sync.py) ships no type stubs.
+[[tool.mypy.overrides]]
+module = ["tokenize_rt"]
+ignore_missing_imports = true
+
+# The `# type: ignore[override]` on the page __aiter__ is unused in the async source
+# (BaseModel has no __aiter__) but required in the generated sync twin's __iter__.
+[[tool.mypy.overrides]]
+module = ["blitz_api._pagination_async"]
+warn_unused_ignores = false
 
 [tool.pyright]
 include = ["src", "tests", "examples"]

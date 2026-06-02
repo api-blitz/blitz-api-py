@@ -156,3 +156,39 @@ EMPLOYMENT_DISTRIBUTION: dict[str, Any] = {
         {"country": "unknown", "count": 54},
     ],
 }
+
+# --- Multi-page fixtures for pagination tests -------------------------------------
+
+# Cursor-based: page 1 returns a cursor; page 2 returns cursor=null (last page).
+PEOPLE_SEARCH_PAGE1: dict[str, Any] = {
+    "total_results": 2,
+    "results": [{**_PERSON, "full_name": "Person One"}],
+    "results_length": 1,
+    "max_results": 1,
+    "cursor": "next-cursor",
+}
+PEOPLE_SEARCH_PAGE2: dict[str, Any] = {
+    "total_results": 2,
+    "results": [{**_PERSON, "full_name": "Person Two"}],
+    "results_length": 1,
+    "max_results": 1,
+    "cursor": None,
+}
+
+# Page-number-based: page 1 of 2, then page 2 of 2 (last page).
+EMPLOYEE_FINDER_PAGE1: dict[str, Any] = {
+    "company_linkedin_url": "https://www.linkedin.com/company/openai",
+    "max_results": 1,
+    "results_length": 1,
+    "page": 1,
+    "total_pages": 2,
+    "results": [{**_PERSON, "full_name": "Employee One"}],
+}
+EMPLOYEE_FINDER_PAGE2: dict[str, Any] = {
+    "company_linkedin_url": "https://www.linkedin.com/company/openai",
+    "max_results": 1,
+    "results_length": 1,
+    "page": 2,
+    "total_pages": 2,
+    "results": [{**_PERSON, "full_name": "Employee Two"}],
+}

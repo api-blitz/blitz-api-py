@@ -6,6 +6,7 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from blitz_api import (
+    APIResponseValidationError,
     APIStatusError,
     AuthenticationError,
     BlitzAPI,
@@ -62,3 +63,25 @@ def test_error_message_falls_back_when_body_has_none(httpx_mock: HTTPXMock) -> N
         _client().account.key_info()
     assert "500" in exc_info.value.message
     assert exc_info.value.body == "upstream exploded"
+
+
+def test_non_json_2xx_raises_response_validation_error(httpx_mock: HTTPXMock) -> None:
+    # A 200 with a non-JSON body (e.g. a proxy's HTML) stays inside BlitzError.
+    httpx_mock.add_response(status_code=200, text="<html>not json</html>")
+    with pytest.raises(APIResponseValidationError) as exc_info:
+        _client().account.key_info()
+    assert exc_info.value.status_code == 200
+    assert isinstance(exc_info.value, BlitzError)
+
+
+def test_empty_2xx_body_raises_response_validation_error(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(status_code=200, content=b"")
+    with pytest.raises(APIResponseValidationError):
+        _client().account.key_info()
+
+
+def test_wrong_shape_2xx_raises_response_validation_error(httpx_mock: HTTPXMock) -> None:
+    # Valid JSON that doesn't match the model (a list, not an object) is wrapped too.
+    httpx_mock.add_response(status_code=200, json=["unexpected", "list"])
+    with pytest.raises(APIResponseValidationError):
+        _client().account.key_info()

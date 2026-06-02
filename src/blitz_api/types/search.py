@@ -1,48 +1,21 @@
-"""Response models for the Search resource."""
+"""Response models for the Search resource.
+
+``search.people``/``search.companies`` return ``CursorPage[...]`` and
+``search.employee_finder`` returns ``PageNumberPage[...]`` (auto-paging page objects
+defined in :mod:`blitz_api._pagination_async` / ``_pagination_sync``), so those
+per-endpoint response models no longer live here. Only the non-paginated waterfall
+result does.
+"""
 
 from __future__ import annotations
 
 from ._models import BlitzModel
-from .shared import Company, Person
+from .shared import Person
 
 __all__ = [
-    "PeopleSearchResponse",
-    "CompanySearchResponse",
-    "EmployeeFinderResponse",
     "WaterfallIcpMatch",
     "WaterfallIcpResponse",
 ]
-
-
-class PeopleSearchResponse(BlitzModel):
-    """Cursor-paginated result of ``search.people``."""
-
-    total_results: int | None = None
-    results: list[Person] = []
-    results_length: int | None = None
-    max_results: int | None = None
-    cursor: str | None = None
-
-
-class CompanySearchResponse(BlitzModel):
-    """Cursor-paginated result of ``search.companies``."""
-
-    total_results: int | None = None
-    results: list[Company] = []
-    results_length: int | None = None
-    max_results: int | None = None
-    cursor: str | None = None
-
-
-class EmployeeFinderResponse(BlitzModel):
-    """Page-paginated result of ``search.employee_finder``."""
-
-    company_linkedin_url: str | None = None
-    max_results: int | None = None
-    results_length: int | None = None
-    page: int | None = None
-    total_pages: int | None = None
-    results: list[Person] = []
 
 
 class WaterfallIcpMatch(BlitzModel):

@@ -23,7 +23,10 @@ from .enums import (
 )
 
 # Each accepts an enum member (autocompleted) or a raw string, so callers are
-# never blocked by a value missing from the vendored taxonomy.
+# never blocked by a value missing from the vendored taxonomy. Note: because the
+# enums subclass ``str``, ``Enum | str`` collapses to ``str`` for the type checker, so
+# the taxonomy is an autocomplete aid, not a statically enforced constraint — a typo'd
+# value is sent as-is and rejected (or ignored) by the API rather than caught by mypy.
 IndustryValue = Industry | str
 CompanyTypeValue = CompanyType | str
 EmployeeRangeValue = EmployeeRange | str
@@ -79,7 +82,7 @@ class CompanyFilter(TypedDict, total=False):
     type: CompanyTypeFilter
     employee_range: list[EmployeeRangeValue]
     employee_count: RangeFilter
-    min_linkedin_followers: float
+    min_linkedin_followers: int
     revenue: RangeFilter
     naics_code: KeywordFilter
     sic_code: KeywordFilter

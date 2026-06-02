@@ -19,7 +19,7 @@ uv run pytest                # tests (sync + async)
 ```
 
 CI (`.github/workflows/ci.yml`) runs all of the above, plus a test matrix on
-Python 3.10–3.13.
+Python 3.10–3.14.
 
 ## Generated enums
 
@@ -34,15 +34,31 @@ python scripts/gen_enums.py --check     # verify it is in sync (CI runs this)
 
 To update the taxonomy, edit `openapi/enum-source.json`, regenerate, and commit.
 
+## Generated sync client
+
+The async client and resources are the source of truth; the **sync** client
+(`_client_sync.py`) and resources (`resources/_sync/`) are generated from them:
+
+```bash
+python scripts/gen_sync.py             # regenerate the sync mirror
+python scripts/gen_sync.py --check      # verify it is in sync (CI runs this)
+```
+
+Edit the async file (`_client_async.py` or `resources/_async/<group>.py`), regenerate,
+and commit both. Never hand-edit the generated `_sync` files.
+
 ## Project layout
 
 ```
 src/blitz_api/
-  _client.py        BlitzAPI + AsyncBlitzAPI
+  _client.py        re-exports BlitzAPI + AsyncBlitzAPI
+  _client_async.py  AsyncBlitzAPI (hand-written source)
+  _client_sync.py   BlitzAPI (generated from _client_async.py)
   _base_client.py   request pipeline, retry/backoff, error mapping
-  _rate_limit.py    sync + async token-bucket limiters
+  _rate_limit.py    sync + async sliding-window limiters
+  _compat.py        sleep + timeout type aliases (async->sync rename seam)
   _exceptions.py    exception hierarchy
-  resources/        account / search / enrichment / utils namespaces
+  resources/        _async/ (source) + _sync/ (generated): account/search/enrichment/utils
   types/            response models (Pydantic) + request filters (TypedDict) + enums
 ```
 

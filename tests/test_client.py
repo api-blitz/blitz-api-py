@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import httpx
 import pytest
+from pytest_httpx import HTTPXMock
 
 from blitz_api import AsyncBlitzAPI, BlitzAPI, BlitzError
 from blitz_api._base_client import to_jsonable
 from blitz_api._constants import API_KEY_ENV_VAR, API_KEY_HEADER
+from blitz_api._rate_limit import RateLimiter
 from blitz_api.types import Industry
+from tests import data
+from tests.conftest import FakeClock, url
 
 
 def test_api_key_from_argument() -> None:
@@ -85,6 +89,31 @@ def test_does_not_close_injected_client() -> None:
     client.close()
     assert not http.is_closed
     http.close()
+
+
+def test_http_client_and_timeout_together_raise() -> None:
+    # Passing both is a silent footgun (the http_client carries its own timeout), so
+    # the SDK rejects it explicitly instead of ignoring the timeout.
+    with pytest.raises(ValueError, match="not both"):
+        BlitzAPI(api_key="k", http_client=httpx.Client(), timeout=10.0)
+
+
+def test_async_http_client_and_timeout_together_raise() -> None:
+    with pytest.raises(ValueError, match="not both"):
+        AsyncBlitzAPI(api_key="k", http_client=httpx.AsyncClient(), timeout=10.0)
+
+
+def test_rate_limiter_throttles_through_request(httpx_mock: HTTPXMock, clock: FakeClock) -> None:
+    # End-to-end: the limiter actually gates calls made through the client's request path.
+    client = BlitzAPI(api_key="k", rate_limit_rps=2)
+    client._rate_limiter = RateLimiter(2, monotonic=clock.monotonic, sleep=clock.sleep)
+    for _ in range(3):
+        httpx_mock.add_response(url=url("/v2/account/key-info"), method="GET", json=data.KEY_INFO)
+
+    for _ in range(3):
+        client.account.key_info()
+
+    assert clock.slept == [1.0]  # 3rd call waits out the 2-rps window
 
 
 async def test_async_context_manager_closes_owned_client() -> None:

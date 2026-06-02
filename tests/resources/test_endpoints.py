@@ -8,18 +8,15 @@ from typing import Any, cast
 import httpx
 from pytest_httpx import HTTPXMock
 
-from blitz_api import AsyncBlitzAPI, BlitzAPI
+from blitz_api import AsyncBlitzAPI, AsyncCursorPage, BlitzAPI, CursorPage, PageNumberPage
 from blitz_api.types import (
     CompanyEnrichmentResponse,
-    CompanySearchResponse,
     CurrentDateResponse,
     EmailEnrichmentResponse,
-    EmployeeFinderResponse,
     Industry,
     JobFunction,
     JobLevel,
     KeyInfo,
-    PeopleSearchResponse,
     WaterfallIcpResponse,
 )
 from tests import data
@@ -78,7 +75,7 @@ def test_search_people_serializes_enums_and_drops_none(httpx_mock: HTTPXMock) ->
         max_results=5,
     )
 
-    assert isinstance(result, PeopleSearchResponse)
+    assert isinstance(result, CursorPage)
     body = _sent_body(httpx_mock)
     assert body == {
         "company": {"industry": {"include": ["Software Development"]}},
@@ -93,7 +90,7 @@ def test_search_companies(httpx_mock: HTTPXMock) -> None:
         url=url("/v2/search/companies"), method="POST", json=data.COMPANY_SEARCH
     )
     result = _client().search.companies(company={"employee_range": ["1-10"]}, max_results=1)
-    assert isinstance(result, CompanySearchResponse)
+    assert isinstance(result, CursorPage)
     assert _sent_body(httpx_mock) == {"company": {"employee_range": ["1-10"]}, "max_results": 1}
 
 
@@ -107,7 +104,7 @@ def test_employee_finder_serializes_enum_lists(httpx_mock: HTTPXMock) -> None:
         job_function=[JobFunction.ENGINEERING],
         max_results=1,
     )
-    assert isinstance(result, EmployeeFinderResponse)
+    assert isinstance(result, PageNumberPage)
     assert _sent_body(httpx_mock) == {
         "company_linkedin_url": "https://www.linkedin.com/company/openai",
         "job_level": ["Director"],
@@ -157,7 +154,7 @@ async def test_async_search_people(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(url=url("/v2/search/people"), method="POST", json=data.PEOPLE_SEARCH)
     async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
         result = await client.search.people(people={"job_level": [JobLevel.C_TEAM]})
-    assert isinstance(result, PeopleSearchResponse)
+    assert isinstance(result, AsyncCursorPage)
     assert result.results[0].full_name == "Beulah Lee"
 
 
@@ -168,3 +165,23 @@ def test_request_includes_user_agent(httpx_mock: HTTPXMock) -> None:
     assert request is not None
     assert request.headers["user-agent"].startswith("blitz-api-py/")
     assert isinstance(request, httpx.Request)
+
+
+def test_per_call_timeout_is_forwarded(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/enrichment/email"), method="POST", json=data.EMAIL_ENRICHMENT
+    )
+    _client().enrichment.email(
+        person_linkedin_url="https://www.linkedin.com/in/example", timeout=12.5
+    )
+    request = httpx_mock.get_request()
+    assert request is not None
+    assert request.extensions["timeout"]["read"] == 12.5
+
+
+def test_default_timeout_is_used_without_override(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(url=url("/v2/account/key-info"), method="GET", json=data.KEY_INFO)
+    _client().account.key_info()
+    request = httpx_mock.get_request()
+    assert request is not None
+    assert request.extensions["timeout"]["read"] == 30.0  # DEFAULT_TIMEOUT
