@@ -63,6 +63,10 @@ def test_employee_finder_is_page_paginated() -> None:
 
 def test_waterfall_icp_wraps_person_with_tier() -> None:
     resp = WaterfallIcpResponse.model_validate(data.WATERFALL_ICP)
+    # Top-level fields the live API returns (previously only ``results`` was typed).
+    assert resp.company_linkedin_url == "https://www.linkedin.com/company/openai"
+    assert resp.max_results == 1
+    assert resp.results_length == 1
     match = resp.results[0]
     assert match.icp == 1
     assert match.ranking == 1
