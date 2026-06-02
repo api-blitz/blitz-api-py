@@ -110,6 +110,9 @@ EMPLOYEE_FINDER: dict[str, Any] = {
 }
 
 WATERFALL_ICP: dict[str, Any] = {
+    "company_linkedin_url": "https://www.linkedin.com/company/openai",
+    "max_results": 1,
+    "results_length": 1,
     "results": [{"icp": 1, "ranking": 1, "person": _PERSON}],
 }
 

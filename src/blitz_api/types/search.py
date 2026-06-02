@@ -33,4 +33,7 @@ class WaterfallIcpMatch(BlitzModel):
 class WaterfallIcpResponse(BlitzModel):
     """Result of ``search.waterfall_icp``."""
 
+    company_linkedin_url: str | None = None
+    max_results: int | None = None
+    results_length: int | None = None
     results: list[WaterfallIcpMatch] = []

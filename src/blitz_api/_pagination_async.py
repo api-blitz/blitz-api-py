@@ -17,6 +17,7 @@ from typing import Any, Generic, TypeVar, cast
 
 from typing_extensions import Self
 
+from ._exceptions import BlitzError
 from ._pagination_base import BasePage
 
 ItemT = TypeVar("ItemT")
@@ -48,6 +49,17 @@ class AsyncPaginator(BasePage, Generic[ItemT]):
     def auto_paging_iter(self, *, max_items: int | None = None) -> AsyncIterator[ItemT]:
         """Iterate every item across all pages, optionally stopping after ``max_items``."""
         return self._auto_paging_items(max_items)
+
+    async def collect(self, *, max_items: int | None = None) -> list[ItemT]:
+        """Drain every item across all pages into a list, optionally capped at ``max_items``.
+
+        Convenience over a manual iteration loop; pair with ``max_items`` so an unbounded result
+        set can't exhaust memory — or credits, since the API bills per result returned.
+        """
+        items: list[ItemT] = []
+        async for item in self._auto_paging_items(max_items):
+            items.append(item)
+        return items
 
     async def iter_pages(self, *, max_pages: int | None = None) -> AsyncIterator[Self]:
         """Iterate page objects across the result set, optionally capped at ``max_pages``."""
@@ -97,6 +109,15 @@ class AsyncCursorPage(AsyncPaginator[ItemT], Generic[ItemT]):
         return bool(self.cursor)
 
     def _next_body(self) -> dict[str, Any]:
+        # Guard against a non-advancing cursor: if the API hands back the same cursor it was
+        # given, paging again would re-fetch (and re-bill) the same page forever. ``_body``
+        # holds the cursor that fetched THIS page (bound after the request), so a cheap equality
+        # check breaks the loop instead of spinning. Mirrors the JS SDK's CursorPage guard.
+        if self.cursor is not None and self.cursor == self._body.get("cursor"):
+            raise BlitzError(
+                "Cursor did not advance: the API returned the same cursor it was given. "
+                "Aborting to avoid an infinite pagination loop."
+            )
         return {**self._body, "cursor": self.cursor}
 
 

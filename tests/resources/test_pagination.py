@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import pytest
 from pytest_httpx import HTTPXMock
 
-from blitz_api import AsyncBlitzAPI, BlitzAPI, CursorPage
+from blitz_api import AsyncBlitzAPI, BlitzAPI, BlitzError, CursorPage
 from blitz_api.types import Person
 from tests import data
 from tests.conftest import TEST_KEY, url
@@ -107,6 +108,53 @@ def test_cursor_continues_past_empty_intermediate_page(httpx_mock: HTTPXMock) ->
     assert len(httpx_mock.get_requests()) == 2
 
 
+def test_cursor_guard_aborts_on_non_advancing_cursor(httpx_mock: HTTPXMock) -> None:
+    # The API hands back the same cursor it was given; iteration must abort with a clear error
+    # instead of looping forever (re-fetching and re-billing the same page).
+    stuck = {**data.PEOPLE_SEARCH_PAGE1, "cursor": "stuck"}
+    httpx_mock.add_response(url=_PEOPLE, method="POST", json=stuck)
+    httpx_mock.add_response(url=_PEOPLE, method="POST", json=stuck)
+
+    with pytest.raises(BlitzError, match="Cursor did not advance"):
+        list(_client().search.people(max_results=1))
+
+    # First fetch (no cursor) + second (cursor=stuck); the third loop was aborted pre-request.
+    assert len(httpx_mock.get_requests()) == 2
+
+
+def test_cursor_guard_allows_distinct_cursors(httpx_mock: HTTPXMock) -> None:
+    # Distinct cursors on consecutive pages must NOT trip the guard — it fires only on a repeat.
+    mid = {**data.PEOPLE_SEARCH_PAGE1, "cursor": "second-cursor"}
+    httpx_mock.add_response(url=_PEOPLE, method="POST", json=data.PEOPLE_SEARCH_PAGE1)
+    httpx_mock.add_response(url=_PEOPLE, method="POST", json=mid)
+    httpx_mock.add_response(url=_PEOPLE, method="POST", json=data.PEOPLE_SEARCH_PAGE2)
+
+    names = [p.full_name for p in _client().search.people(max_results=1)]
+
+    assert names == ["Person One", "Person One", "Person Two"]
+    assert len(httpx_mock.get_requests()) == 3
+
+
+def test_collect_drains_all_items(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(url=_PEOPLE, method="POST", json=data.PEOPLE_SEARCH_PAGE1)
+    httpx_mock.add_response(url=_PEOPLE, method="POST", json=data.PEOPLE_SEARCH_PAGE2)
+
+    people = _client().search.people(max_results=1).collect()
+
+    assert [p.full_name for p in people] == ["Person One", "Person Two"]
+    assert len(httpx_mock.get_requests()) == 2
+
+
+def test_collect_honors_max_items(httpx_mock: HTTPXMock) -> None:
+    # max_items caps the collected list and stops fetching further pages.
+    httpx_mock.add_response(url=_PEOPLE, method="POST", json=data.PEOPLE_SEARCH_PAGE1)
+
+    people = _client().search.people(max_results=1).collect(max_items=1)
+
+    assert [p.full_name for p in people] == ["Person One"]
+    assert len(httpx_mock.get_requests()) == 1
+
+
 # --- page-number-based (employee_finder) -------------------------------------------
 
 
@@ -192,3 +240,29 @@ async def test_async_iter_pages_and_max_items(httpx_mock: HTTPXMock) -> None:
 
     assert names == ["Person One"]
     assert len(httpx_mock.get_requests()) == 1
+
+
+async def test_async_cursor_guard_aborts(httpx_mock: HTTPXMock) -> None:
+    stuck = {**data.PEOPLE_SEARCH_PAGE1, "cursor": "stuck"}
+    httpx_mock.add_response(url=_PEOPLE, method="POST", json=stuck)
+    httpx_mock.add_response(url=_PEOPLE, method="POST", json=stuck)
+
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        page = await client.search.people(max_results=1)
+        with pytest.raises(BlitzError, match="Cursor did not advance"):
+            async for _ in page:
+                pass
+
+    assert len(httpx_mock.get_requests()) == 2
+
+
+async def test_async_collect_drains_all_items(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(url=_PEOPLE, method="POST", json=data.PEOPLE_SEARCH_PAGE1)
+    httpx_mock.add_response(url=_PEOPLE, method="POST", json=data.PEOPLE_SEARCH_PAGE2)
+
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        page = await client.search.people(max_results=1)
+        people = await page.collect()
+
+    assert [p.full_name for p in people] == ["Person One", "Person Two"]
+    assert len(httpx_mock.get_requests()) == 2
