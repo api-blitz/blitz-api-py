@@ -25,6 +25,11 @@ coverage.xml
 # uv
 # (uv.lock IS committed; only ignore caches)
 
+# Environment variables
+.env
+.env.*
+!.env.example
+
 # Editors / OS
 .idea/
 .vscode/
