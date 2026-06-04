@@ -23,16 +23,24 @@ Python 3.10–3.14.
 
 ## Generated enums
 
-`src/blitz_api/types/enums.py` is **generated** from `openapi/enum-source.json`
-(value lists extracted verbatim from the Blitz OpenAPI v2 spec). Never edit it by
-hand.
+`src/blitz_api/types/enums.py` **and** its cache `openapi/enum-source.json` are
+**generated** from the live Blitz OpenAPI spec (`https://api.blitz-api.ai/openapi`).
+Never edit either by hand.
 
 ```bash
-python scripts/gen_enums.py            # regenerate
-python scripts/gen_enums.py --check     # verify it is in sync (CI runs this)
+python scripts/gen_enums.py --fetch     # pull the live spec, rewrite the cache AND enums.py
+python scripts/gen_enums.py             # re-render enums.py from the committed cache (offline)
+python scripts/gen_enums.py --check      # verify enums.py is in sync (offline; CI runs this)
 ```
 
-To update the taxonomy, edit `openapi/enum-source.json`, regenerate, and commit.
+Only `--fetch` touches the network. To refresh the taxonomy, run `--fetch`, then commit
+both `openapi/enum-source.json` and `src/blitz_api/types/enums.py`. The per-PR drift guard
+(`--check`) stays offline, so CI never breaks when the spec endpoint is down or changes —
+refreshes land as deliberate PRs.
+
+**Release-time sync gate.** The `publish` job in `.github/workflows/release.yml` runs
+`gen_enums.py --fetch` and fails the publish if the rendered `enums.py` drifted from the
+live spec, so no release ships enums stale vs production.
 
 ## Generated sync client
 

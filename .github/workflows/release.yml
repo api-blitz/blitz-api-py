@@ -44,6 +44,18 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
+      - run: uv sync --frozen
+      # The only place CI hits the network for enums: refuse to publish a release
+      # whose enums drifted from the live spec. Per-PR ci.yml stays offline.
+      - name: Verify enums are in sync with the live API spec
+        run: |
+          uv run python scripts/gen_enums.py --fetch
+          if ! git diff --quiet -- src/blitz_api/types/enums.py; then
+            echo "::error::Committed enums are stale vs the live spec (https://api.blitz-api.ai/openapi). Run \`python scripts/gen_enums.py --fetch\`, commit src/blitz_api/types/enums.py + openapi/enum-source.json, then re-release."
+            git --no-pager diff -- src/blitz_api/types/enums.py openapi/enum-source.json
+            exit 1
+          fi
+          echo "Enums are in sync with the live spec."
       - name: Build sdist and wheel
         run: uv build
       - name: Publish to PyPI (Trusted Publishing)

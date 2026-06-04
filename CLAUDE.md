@@ -10,9 +10,12 @@ and step-by-step playbooks). This file is just the quick rules.
 
 ## Golden rules
 
-- **Never hand-edit `src/blitz_api/types/enums.py`** — it's generated. Edit
-  `openapi/enum-source.json`, then `uv run python scripts/gen_enums.py`. CI fails if
-  it's stale (`gen_enums.py --check`).
+- **Never hand-edit `src/blitz_api/types/enums.py` _or_ `openapi/enum-source.json`** —
+  both are generated. Run `uv run python scripts/gen_enums.py --fetch` to pull the live
+  OpenAPI spec (`https://api.blitz-api.ai/openapi`), de-dup, and rewrite both; commit both.
+  Only `--fetch` hits the network; the offline drift guard `gen_enums.py --check` re-renders
+  from the committed cache. CI fails if `enums.py` is stale, and the release job blocks a
+  publish whose enums drifted from the live spec.
 - **Never hand-edit the sync client/resources** — `src/blitz_api/_client_sync.py` and
   everything under `src/blitz_api/resources/_sync/` are generated from the async source
   (`_client_async.py`, `resources/_async/`) by `uv run python scripts/gen_sync.py`. Edit
