@@ -1,5 +1,10 @@
 # blitz-api-py
 
+[![PyPI version](https://img.shields.io/pypi/v/blitz-api-py.svg)](https://pypi.org/project/blitz-api-py/)
+[![types: py.typed](https://img.shields.io/badge/types-py.typed-blue.svg)](https://pypi.org/project/blitz-api-py/)
+[![CI](https://github.com/api-blitz/blitz-api-py/actions/workflows/ci.yml/badge.svg)](https://github.com/api-blitz/blitz-api-py/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/pypi/l/blitz-api-py.svg)](./LICENSE)
+
 The typed Python SDK for the [Blitz API](https://blitz-api.ai) — B2B data, search,
 and enrichment.
 
@@ -10,14 +15,35 @@ and enrichment.
 - **Resilient** — built-in client-side rate limiting, retries with backoff on
   `429`/`5xx`, and a typed exception hierarchy.
 - **Forward-compatible** — new fields the API adds never break deserialization.
+- **1:1 with the API** — request filters and response fields are snake_case,
+  matching [docs.blitz-api.ai](https://docs.blitz-api.ai).
 
 > Create and manage API keys at [app.blitz-api.ai](https://app.blitz-api.ai).
+
+> **Billing.** Blitz bills **per result**. A bare `for person in client.search.people(...)`
+> loop streams every match up to the server-side limit (people: 50k results), which can be
+> a lot of credits. Bound spend with **`max_items`** (a client-side total cap on
+> `.collect()` / `.auto_paging_iter()`, never sent on the wire) — details in
+> [Pagination](#pagination).
+
+## Contents
+
+- [Installation](#installation)
+- [Quickstart](#quickstart)
+- [Example: find, enrich, collect](#example-find-enrich-collect)
+- [Authentication](#authentication)
+- [Endpoints](#endpoints)
+- [Pagination](#pagination)
+- [Configuration](#configuration)
+- [Error handling](#error-handling)
+- [Forward compatibility](#forward-compatibility)
+- [Development](#development)
 
 ## Installation
 
 ```bash
 pip install blitz-api-py
-# or: uv add blitz-api-py
+# or: poetry add blitz-api-py   /   uv add blitz-api-py
 ```
 
 Requires Python 3.10+.
@@ -67,6 +93,61 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
+## Example: find, enrich, collect
+
+A complete flow — find people, enrich each one's verified work email, collect the
+contacts. `max_items` caps the total fetched so the run can't surprise you with credits.
+
+```python
+from blitz_api import BlitzAPI
+from blitz_api.types import Industry, JobLevel
+
+client = BlitzAPI()  # reads BLITZ_API_KEY
+
+# 1. Find up to 25 VPs at software companies (typed filters, 1:1 with the API).
+leads = client.search.people(
+    company={"industry": {"include": [Industry.SOFTWARE_DEVELOPMENT]}},
+    people={"job_level": [JobLevel.VP]},
+    max_results=25,
+).collect(max_items=25)  # client-side total cap — bounds credit spend
+
+# 2. Enrich each lead's verified work email from their LinkedIn profile URL.
+contacts: list[dict[str, str | None]] = []
+for person in leads:
+    if not person.linkedin_url:
+        continue
+    result = client.enrichment.email(person_linkedin_url=person.linkedin_url)
+    if result.found:
+        contacts.append({"name": person.full_name, "email": result.email})
+
+print(f"Collected {len(contacts)} contacts")
+```
+
+What comes back is typed and snake_case. A `Person` from the search above (fields are a
+**superset** — only what the profile has is populated, and unknown fields the API adds
+later are preserved):
+
+```python
+Person(
+    full_name="Jordan Lee",
+    headline="VP of Engineering at Acme",
+    linkedin_url="https://www.linkedin.com/in/example-person",
+    location=Location(city="San Francisco", state_code="CA", country_code="US", continent="North America"),
+    experiences=[Experience(job_title="VP of Engineering", company_name="Acme", job_is_current=True)],
+    # first_name, last_name, skills, education, certifications, … also present
+)
+```
+
+And `enrichment.email(...)` returns:
+
+```python
+EmailEnrichmentResponse(
+    found=True,
+    email="jordan@acme.com",
+    all_emails=[EmailMatch(email="jordan@acme.com", email_domain="acme.com")],
+)
+```
+
 ## Authentication
 
 Pass the key explicitly or via the `BLITZ_API_KEY` environment variable:
@@ -99,6 +180,13 @@ member or a raw string.
 The search methods return an **auto-paginating page**: iterate it and the SDK fetches
 each subsequent page for you. `search.people`/`search.companies` are cursor-based;
 `search.employee_finder` is page-based — both behave identically here.
+
+> **`max_results` is the page size, not a total.** It's results per page, and the API
+> **bills 1 credit per result returned**. A bare `for person in client.search.people(...)`
+> loop streams *every* match up to the server-side limit (people: 50k results / 1k pages;
+> employee finder: 10k), which can be a lot of credits. Bound it with **`max_items`** on
+> `.collect()` / `.auto_paging_iter()` (a client-side total cap — never sent on the wire),
+> `break` out of the loop, or drive pages manually.
 
 ```python
 # Iterate every matching person across all pages — no cursor handling needed.
@@ -178,6 +266,12 @@ except BlitzError:
 `401`/`402`/`404` raise immediately. Connect timeouts and connection errors are retried,
 but a **read timeout is not** — the server may already have processed (and billed) the
 request, so it surfaces as `APITimeoutError` rather than risking a double charge.
+
+## Forward compatibility
+
+Response models subclass a base configured with `extra="allow"`, so a field the API adds
+before this SDK models it is still present on the parsed object (via attribute access or
+`.model_extra`). Known fields stay precisely typed.
 
 ## Development
 
