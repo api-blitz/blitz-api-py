@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/api-blitz/blitz-api-py/compare/v0.2.0...v0.3.0) (2026-06-04)
+
+
+### Features
+
+* generate enums from the live OpenAPI spec with offline drift guard ([#9](https://github.com/api-blitz/blitz-api-py/issues/9)) ([fee865c](https://github.com/api-blitz/blitz-api-py/commit/fee865c4d8f7c685330794fa79921dccd7556e37))
+
 ## [0.2.0](https://github.com/api-blitz/blitz-api-py/compare/v0.1.0...v0.2.0) (2026-06-02)
 
 
