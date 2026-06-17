@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/api-blitz/blitz-api-py/compare/v0.3.0...v0.4.0) (2026-06-17)
+
+
+### Features
+
+* add company department distribution endpoint and response models ([b64a6d9](https://github.com/api-blitz/blitz-api-py/commit/b64a6d9bada069206c77ee11c9f86fae01ef6baa))
+
+
+### Documentation
+
+* port JS SDK README upgrade (badges, billing note, TOC, example) ([#11](https://github.com/api-blitz/blitz-api-py/issues/11)) ([2276513](https://github.com/api-blitz/blitz-api-py/commit/2276513cdae4c23d4a1b50f59366e7156bf81019))
+
 ## [0.3.0](https://github.com/api-blitz/blitz-api-py/compare/v0.2.0...v0.3.0) (2026-06-04)
 
 
