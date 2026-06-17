@@ -5,13 +5,18 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..._compat import TimeoutParam
-from ...types.utils import CompanyEmploymentDistributionResponse, CurrentDateResponse
+from ...types.utils import (
+    CompanyDepartmentDistributionResponse,
+    CompanyEmploymentDistributionResponse,
+    CurrentDateResponse,
+)
 
 if TYPE_CHECKING:
     from ..._client import AsyncBlitzAPI
 
 _CURRENT_DATE = "/v2/utils/current-date"
 _EMPLOYMENT_DISTRIBUTION = "/v2/utils/company-employment-distribution"
+_DEPARTMENT_DISTRIBUTION = "/v2/utils/company-department-distribution"
 
 
 class AsyncUtilsResource:
@@ -39,5 +44,20 @@ class AsyncUtilsResource:
             _EMPLOYMENT_DISTRIBUTION,
             body={"company_linkedin_url": company_linkedin_url},
             cast_to=CompanyEmploymentDistributionResponse,
+            timeout=timeout,
+        )
+
+    async def company_department_distribution(
+        self, *, company_linkedin_url: str, timeout: TimeoutParam = None
+    ) -> CompanyDepartmentDistributionResponse:
+        """Get a company's employee count broken down by department.
+
+        Employees with no classified department are counted under ``"Other"``.
+        """
+        return await self._client._request(
+            "POST",
+            _DEPARTMENT_DISTRIBUTION,
+            body={"company_linkedin_url": company_linkedin_url},
+            cast_to=CompanyDepartmentDistributionResponse,
             timeout=timeout,
         )

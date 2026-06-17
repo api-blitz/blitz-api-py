@@ -169,7 +169,7 @@ All methods are grouped into four namespaces:
 | `client.account` | `key_info()` |
 | `client.search` | `people()`, `companies()`, `employee_finder()`, `waterfall_icp()` |
 | `client.enrichment` | `email()`, `phone()`, `email_to_person()`, `phone_to_person()`, `company()`, `domain_to_linkedin()`, `linkedin_to_domain()` |
-| `client.utils` | `current_date()`, `company_employment_distribution()` |
+| `client.utils` | `current_date()`, `company_employment_distribution()`, `company_department_distribution()` |
 
 Every method returns a typed Pydantic model (see `blitz_api.types`). Enum-backed
 filter fields (e.g. `Industry`, `JobLevel`, `Continent`) accept either an enum

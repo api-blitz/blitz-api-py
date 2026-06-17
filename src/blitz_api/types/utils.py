@@ -8,6 +8,8 @@ __all__ = [
     "CurrentDateResponse",
     "EmploymentDistributionItem",
     "CompanyEmploymentDistributionResponse",
+    "DepartmentDistributionItem",
+    "CompanyDepartmentDistributionResponse",
 ]
 
 
@@ -33,3 +35,21 @@ class CompanyEmploymentDistributionResponse(BlitzModel):
     company_linkedin_url: str | None = None
     total_employees: int | None = None
     distribution: list[EmploymentDistributionItem] = []
+
+
+class DepartmentDistributionItem(BlitzModel):
+    """Employee count for a single department (Blitz job function).
+
+    Employees with no classified department are counted under ``"Other"``.
+    """
+
+    department: str | None = None
+    count: int | None = None
+
+
+class CompanyDepartmentDistributionResponse(BlitzModel):
+    """Result of ``utils.company_department_distribution``."""
+
+    company_linkedin_url: str | None = None
+    total_employees: int | None = None
+    distribution: list[DepartmentDistributionItem] = []

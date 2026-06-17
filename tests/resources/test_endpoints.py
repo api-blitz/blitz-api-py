@@ -10,6 +10,7 @@ from pytest_httpx import HTTPXMock
 
 from blitz_api import AsyncBlitzAPI, AsyncCursorPage, BlitzAPI, CursorPage, PageNumberPage
 from blitz_api.types import (
+    CompanyDepartmentDistributionResponse,
     CompanyEnrichmentResponse,
     CurrentDateResponse,
     EmailEnrichmentResponse,
@@ -136,6 +137,38 @@ def test_current_date(httpx_mock: HTTPXMock) -> None:
     result = _client().utils.current_date(region="America/New_York")
     assert isinstance(result, CurrentDateResponse)
     assert _sent_body(httpx_mock) == {"region": "America/New_York"}
+
+
+def test_company_department_distribution(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/utils/company-department-distribution"),
+        method="POST",
+        json=data.DEPARTMENT_DISTRIBUTION,
+    )
+    result = _client().utils.company_department_distribution(
+        company_linkedin_url="https://www.linkedin.com/company/openai"
+    )
+    assert isinstance(result, CompanyDepartmentDistributionResponse)
+    assert result.total_employees == 1234
+    assert result.distribution[0].department == "Engineering"
+    assert _sent_body(httpx_mock) == {
+        "company_linkedin_url": "https://www.linkedin.com/company/openai"
+    }
+
+
+async def test_async_company_department_distribution(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/utils/company-department-distribution"),
+        method="POST",
+        json=data.DEPARTMENT_DISTRIBUTION,
+    )
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        result = await client.utils.company_department_distribution(
+            company_linkedin_url="https://www.linkedin.com/company/openai"
+        )
+    assert isinstance(result, CompanyDepartmentDistributionResponse)
+    assert result.distribution[-1].department == "Other"
+    assert result.distribution[-1].count == 12
 
 
 async def test_async_email_enrichment(httpx_mock: HTTPXMock) -> None:

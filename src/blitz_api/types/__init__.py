@@ -53,8 +53,10 @@ from .shared import (
     Person,
 )
 from .utils import (
+    CompanyDepartmentDistributionResponse,
     CompanyEmploymentDistributionResponse,
     CurrentDateResponse,
+    DepartmentDistributionItem,
     EmploymentDistributionItem,
 )
 
@@ -105,4 +107,6 @@ __all__ = [
     "CurrentDateResponse",
     "EmploymentDistributionItem",
     "CompanyEmploymentDistributionResponse",
+    "DepartmentDistributionItem",
+    "CompanyDepartmentDistributionResponse",
 ]

@@ -160,6 +160,16 @@ EMPLOYMENT_DISTRIBUTION: dict[str, Any] = {
     ],
 }
 
+DEPARTMENT_DISTRIBUTION: dict[str, Any] = {
+    "company_linkedin_url": "https://www.linkedin.com/company/openai",
+    "total_employees": 1234,
+    "distribution": [
+        {"department": "Engineering", "count": 320},
+        {"department": "Sales", "count": 210},
+        {"department": "Other", "count": 12},
+    ],
+}
+
 # --- Multi-page fixtures for pagination tests -------------------------------------
 
 # Cursor-based: page 1 returns a cursor; page 2 returns cursor=null (last page).

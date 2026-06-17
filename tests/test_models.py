@@ -5,6 +5,7 @@ from __future__ import annotations
 from blitz_api import CursorPage, PageNumberPage
 from blitz_api.types import (
     Company,
+    CompanyDepartmentDistributionResponse,
     CompanyEmploymentDistributionResponse,
     CompanyEnrichmentResponse,
     CurrentDateResponse,
@@ -125,6 +126,14 @@ def test_employment_distribution_parses() -> None:
     assert resp.total_employees == 1234
     assert resp.distribution[0].country == "US"
     assert resp.distribution[0].count == 900
+
+
+def test_department_distribution_parses() -> None:
+    resp = CompanyDepartmentDistributionResponse.model_validate(data.DEPARTMENT_DISTRIBUTION)
+    assert resp.total_employees == 1234
+    assert resp.distribution[0].department == "Engineering"
+    assert resp.distribution[0].count == 320
+    assert resp.distribution[-1].department == "Other"
 
 
 def test_forward_compatible_unknown_fields_preserved() -> None:

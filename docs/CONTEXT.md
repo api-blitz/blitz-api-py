@@ -35,7 +35,7 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
   404 key not found · 429 rate limited (official client waits 60 s then retries) ·
   5xx server error.
 
-### Endpoint → method → response model (all 14)
+### Endpoint → method → response model (all 15)
 
 | HTTP | Path | SDK method | Response model |
 | --- | --- | --- | --- |
@@ -53,6 +53,7 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
 | POST | `/v2/enrichment/linkedin-to-domain` | `enrichment.linkedin_to_domain()` | `LinkedinToDomainResponse` |
 | POST | `/v2/utils/current-date` | `utils.current_date()` | `CurrentDateResponse` |
 | POST | `/v2/utils/company-employment-distribution` | `utils.company_employment_distribution()` | `CompanyEmploymentDistributionResponse` |
+| POST | `/v2/utils/company-department-distribution` | `utils.company_department_distribution()` | `CompanyDepartmentDistributionResponse` |
 
 ### How to re-derive the API surface (IMPORTANT)
 
@@ -132,7 +133,8 @@ src/blitz_api/
     search.py        WaterfallIcpResponse, WaterfallIcpMatch (the paginated search results
                      return the page classes below, not per-endpoint models)
     enrichment.py    7 enrichment response models + EmailMatch
-    utils.py         CurrentDateResponse, CompanyEmploymentDistributionResponse, item
+    utils.py         CurrentDateResponse, CompanyEmploymentDistributionResponse,
+                     CompanyDepartmentDistributionResponse, + per-item models
     __init__.py      Re-exports the public type surface (grouped).
   _pagination_base.py   BasePage — shared pagination state/context + _bind (no async).
   _pagination_async.py  AsyncPaginator/AsyncCursorPage/AsyncPageNumberPage. HAND-WRITTEN SOURCE.
@@ -440,3 +442,13 @@ the history rather than re-litigating it.
   committed (diffing only `enums.py`, so a `spec_version`-only bump never spuriously blocks a
   release) — the only CI use of the network. Added `tests/test_gen_enums.py` (pure-function
   unit tests; no network/disk). Test suite 122 → 132.
+- **2026-06-17** — Added `utils.company_department_distribution()`
+  (`POST /v2/utils/company-department-distribution`). Same request shape
+  as `company_employment_distribution` (one `company_linkedin_url`); the response groups
+  employees by **department** (Blitz job function) instead of country, with unclassified
+  employees bucketed under `"Other"` and `total_employees` summing all buckets. New models
+  `DepartmentDistributionItem` / `CompanyDepartmentDistributionResponse` in `types/utils.py`
+  (kept `department` as plain `str`, mirroring `EmploymentDistributionItem.country` — response
+  models stay forward-compatible, not enum-bound). Added to the async source only and
+  regenerated the sync class via `gen_sync.py`. Sync+async endpoint tests and a model-parse
+  test added (15th endpoint).
