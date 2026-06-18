@@ -2,8 +2,17 @@
 
 from __future__ import annotations
 
+import pytest
+from pytest_httpx import HTTPXMock
+
+from blitz_api import AsyncBlitzAPI, BlitzAPI
 from blitz_api._rate_limit import AsyncRateLimiter, RateLimiter
+from tests import data
 from tests.conftest import FakeClock
+
+
+class _SleepCalled(Exception):
+    """Raised by the injected sleep to prove the limiter called it (and stop the loop)."""
 
 
 def test_disabled_limiter_never_sleeps(clock: FakeClock) -> None:
@@ -81,3 +90,44 @@ async def test_async_exceeding_rps_waits_for_window(clock: FakeClock) -> None:
         await limiter.acquire()
     await limiter.acquire()
     assert clock.slept == [1.0]
+
+
+def test_sync_client_threads_its_sleep_into_per_endpoint_limiter(httpx_mock: HTTPXMock) -> None:
+    # The client's ``sleep`` must drive the limiter's throttle wait, not just retry backoff:
+    # a custom sleep injected for tests has to reach the per-endpoint limiter too. With the
+    # default ``time.sleep`` the limiter would block ~1s on the 2nd call (or hang under a
+    # no-op fake); raising from our sleep proves the limiter invoked *it*.
+    calls: list[float] = []
+
+    def fake_sleep(seconds: float) -> None:
+        calls.append(seconds)
+        raise _SleepCalled
+
+    httpx_mock.add_response(json=data.KEY_INFO)  # only the 1st call reaches the network
+    client = BlitzAPI(api_key="k", rate_limit_rps=1, sleep=fake_sleep)
+
+    client.account.key_info()  # admitted immediately, fills the 1-req window
+    with pytest.raises(_SleepCalled):
+        client.account.key_info()  # 2nd: limiter throttles → calls our sleep → raises
+
+    assert calls and calls[0] > 0
+
+
+async def test_async_client_threads_its_sleep_into_per_endpoint_limiter(
+    httpx_mock: HTTPXMock,
+) -> None:
+    calls: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        calls.append(seconds)
+        raise _SleepCalled
+
+    httpx_mock.add_response(json=data.KEY_INFO)  # only the 1st call reaches the network
+    client = AsyncBlitzAPI(api_key="k", rate_limit_rps=1, sleep=fake_sleep)
+
+    await client.account.key_info()  # admitted immediately, fills the 1-req window
+    with pytest.raises(_SleepCalled):
+        await client.account.key_info()  # 2nd: limiter throttles → calls our sleep → raises
+
+    assert calls and calls[0] > 0
+    await client.close()

@@ -70,8 +70,12 @@ class AsyncBlitzAPI(BaseClient):
         limiter = self._rate_limiters.get(path)
         if limiter is None:
             # ``setdefault`` keeps concurrent first-callers on the same instance; any
-            # extra limiter built in a race is harmlessly discarded.
-            limiter = self._rate_limiters.setdefault(path, AsyncRateLimiter(self._rate_limit_rps))
+            # extra limiter built in a race is harmlessly discarded. Thread the client's
+            # ``sleep`` through so a custom/fake sleep injected for tests also drives the
+            # limiter's throttle wait, not just the retry backoff.
+            limiter = self._rate_limiters.setdefault(
+                path, AsyncRateLimiter(self._rate_limit_rps, sleep=self._sleep)
+            )
         return limiter
 
     async def _request(
