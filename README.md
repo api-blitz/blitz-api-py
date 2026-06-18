@@ -227,10 +227,13 @@ client = BlitzAPI(
 ```
 
 The client-side rate limiter is a sliding window — at most `rate_limit_rps` requests
-in any rolling second — so a single client instance stays under the API's limit (5 req/s
-by default; check your key's limit via
-`client.account.key_info().max_requests_per_seconds`). Across multiple processes you may
-still hit `429` — the retry path handles that.
+in any rolling second — applied **per endpoint**: each endpoint (e.g. `.email` vs
+`.phone`) is throttled independently, mirroring the API's own limit, which is also per
+endpoint (5 req/s by default; check yours via
+`client.account.key_info().max_requests_per_seconds`). A single client instance therefore
+stays under the limit on every endpoint, so a burst on one never blocks another. Across
+multiple processes — which share an endpoint's budget — you may still hit `429`; the retry
+path handles that.
 
 Every method also accepts a per-call `timeout` (seconds or an `httpx.Timeout`) when one
 endpoint needs longer than the client default:
