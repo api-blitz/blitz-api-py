@@ -52,12 +52,29 @@ class BlitzAPI(BaseClient):
             )
         self._http_client = http_client or httpx.Client(timeout=timeout)
         self._owns_http_client = http_client is None
-        self._rate_limiter = RateLimiter(rate_limit_rps)
+        self._rate_limit_rps = rate_limit_rps
+        # One limiter per endpoint path so each endpoint's rate limit is tracked
+        # independently (e.g. ``.email`` and ``.phone`` do not share a budget). Built
+        # lazily in ``_limiter_for`` on first use of each path.
+        self._rate_limiters: dict[str, RateLimiter] = {}
         if sleep is None:
             import time
 
             sleep = time.sleep
         self._sleep = sleep
+
+    def _limiter_for(self, path: str) -> RateLimiter:
+        """Return the per-endpoint limiter for ``path``, creating it on first use.
+
+        Each endpoint path gets its own sliding window so its rate limit is tracked
+        independently of every other endpoint.
+        """
+        limiter = self._rate_limiters.get(path)
+        if limiter is None:
+            # ``setdefault`` keeps concurrent first-callers on the same instance; any
+            # extra limiter built in a race is harmlessly discarded.
+            limiter = self._rate_limiters.setdefault(path, RateLimiter(self._rate_limit_rps))
+        return limiter
 
     def _request(
         self,
@@ -74,7 +91,7 @@ class BlitzAPI(BaseClient):
 
         attempt = 0
         while True:
-            self._rate_limiter.acquire()
+            self._limiter_for(path).acquire()
             try:
                 if timeout is None:
                     response = self._http_client.request(

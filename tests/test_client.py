@@ -106,7 +106,9 @@ def test_async_http_client_and_timeout_together_raise() -> None:
 def test_rate_limiter_throttles_through_request(httpx_mock: HTTPXMock, clock: FakeClock) -> None:
     # End-to-end: the limiter actually gates calls made through the client's request path.
     client = BlitzAPI(api_key="k", rate_limit_rps=2)
-    client._rate_limiter = RateLimiter(2, monotonic=clock.monotonic, sleep=clock.sleep)
+    client._rate_limiters["/v2/account/key-info"] = RateLimiter(
+        2, monotonic=clock.monotonic, sleep=clock.sleep
+    )
     for _ in range(3):
         httpx_mock.add_response(url=url("/v2/account/key-info"), method="GET", json=data.KEY_INFO)
 
@@ -114,6 +116,52 @@ def test_rate_limiter_throttles_through_request(httpx_mock: HTTPXMock, clock: Fa
         client.account.key_info()
 
     assert clock.slept == [1.0]  # 3rd call waits out the 2-rps window
+
+
+def test_limiter_is_per_endpoint_path() -> None:
+    # Each endpoint path gets its own limiter instance, and lookups are stable per path,
+    # so e.g. ``.email`` and ``.phone`` throttle independently.
+    client = BlitzAPI(api_key="k", rate_limit_rps=5)
+    email = client._limiter_for("/v2/enrichment/email")
+    phone = client._limiter_for("/v2/enrichment/phone")
+    assert email is not phone
+    assert client._limiter_for("/v2/enrichment/email") is email
+
+
+async def test_async_limiter_is_per_endpoint_path() -> None:
+    client = AsyncBlitzAPI(api_key="k", rate_limit_rps=5)
+    email = client._limiter_for("/v2/enrichment/email")
+    phone = client._limiter_for("/v2/enrichment/phone")
+    assert email is not phone
+    assert client._limiter_for("/v2/enrichment/email") is email
+
+
+def test_one_endpoint_burst_does_not_throttle_another(
+    httpx_mock: HTTPXMock, clock: FakeClock
+) -> None:
+    # Bursting one endpoint past its budget makes only that endpoint wait; a different
+    # endpoint is admitted immediately because it has its own independent window.
+    client = BlitzAPI(api_key="k", rate_limit_rps=2)
+    client._rate_limiters["/v2/enrichment/email"] = RateLimiter(
+        2, monotonic=clock.monotonic, sleep=clock.sleep
+    )
+    client._rate_limiters["/v2/enrichment/phone"] = RateLimiter(
+        2, monotonic=clock.monotonic, sleep=clock.sleep
+    )
+    for _ in range(3):
+        httpx_mock.add_response(
+            url=url("/v2/enrichment/email"), method="POST", json=data.EMAIL_ENRICHMENT
+        )
+    httpx_mock.add_response(
+        url=url("/v2/enrichment/phone"), method="POST", json=data.PHONE_ENRICHMENT
+    )
+
+    for _ in range(3):
+        client.enrichment.email(person_linkedin_url="https://www.linkedin.com/in/x")
+    assert clock.slept == [1.0]  # 3rd email waits out the email window
+
+    client.enrichment.phone(person_linkedin_url="https://www.linkedin.com/in/x")
+    assert clock.slept == [1.0]  # phone has its own window — no extra wait
 
 
 async def test_async_context_manager_closes_owned_client() -> None:

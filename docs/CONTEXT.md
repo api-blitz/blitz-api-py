@@ -113,8 +113,9 @@ src/blitz_api/
                      _STATUS_EXCEPTIONS maps code->exception.
   _compat.py         AsyncSleep/SyncSleep + TimeoutParam type aliases. The async ones are
                      token-renamed by gen_sync (the generator can't rewrite Awaitable[...]).
-  _client_async.py   AsyncBlitzAPI (async). Owns an httpx client + rate limiter and
-                     implements _request() (the retry loop). HAND-WRITTEN SOURCE.
+  _client_async.py   AsyncBlitzAPI (async). Owns an httpx client + a per-endpoint rate
+                     limiter registry (_limiter_for) and implements _request() (the retry
+                     loop). HAND-WRITTEN SOURCE.
   _client_sync.py    BlitzAPI (sync). GENERATED from _client_async.py by gen_sync.py.
   _client.py         Thin re-export of BlitzAPI + AsyncBlitzAPI (stable import path).
   resources/         One module per OpenAPI tag group.
@@ -153,7 +154,7 @@ release-please-config.json, .release-please-manifest.json   release automation c
 ### Request flow
 `resource.method(...)` builds a body dict → `client._request(method, path, body, cast_to,
 timeout)` → `to_jsonable(body)` (enum→value, strip None) → await a rate-limit slot
-(sliding window) → httpx dispatch → on success `_parse_model` (wraps bad bodies as
+(sliding window, per-endpoint limiter keyed by path) → httpx dispatch → on success `_parse_model` (wraps bad bodies as
 `APIResponseValidationError`); on non-2xx map to an exception; on 429/5xx retry per policy,
 on connect/pool transport errors retry, on read/write timeout raise.
 
@@ -215,14 +216,25 @@ Internal decisions worth preserving:
   rather than silently shrink output if a mapped enum goes missing upstream or its
   occurrences diverge, and warns-and-ignores unmapped enums. If you need the full spec,
   pull it from the Blitz MCP (§2).
-- **Client-side rate limiter is a per-process sliding window.** At most `rps` requests
-  may begin in any rolling 1-second window (`_rate_limit.py`), matching the Blitz docs
-  ("max 5 per 1000 ms") and the official reference client. A token bucket was rejected:
-  its initial capacity lets a fresh client fire `rps` requests *and* refill within the
-  first second, briefly doubling the rate — the exact pattern the docs say triggers 429
-  on bulk runs. Default 5 rps; `rate_limit_rps=None` disables it. (Auto-detecting the
-  limit from `key-info` on first call was considered but not implemented — would add a
-  surprise network call on construction.)
+- **Client-side rate limiter is a per-process sliding window, applied per endpoint.** At
+  most `rps` requests may begin in any rolling 1-second window (`_rate_limit.py`), matching
+  the Blitz docs ("max 5 per 1000 ms") and the official reference client. A token bucket
+  was rejected: its initial capacity lets a fresh client fire `rps` requests *and* refill
+  within the first second, briefly doubling the rate — the exact pattern the docs say
+  triggers 429 on bulk runs. Default 5 rps; `rate_limit_rps=None` disables it.
+  (Auto-detecting the limit from `key-info` on first call was considered but not
+  implemented — would add a surprise network call on construction.)
+  The client holds **one limiter per endpoint path**, built lazily in
+  `AsyncBlitzAPI._limiter_for` and keyed by the request path (`self._rate_limiters: dict`),
+  so each endpoint throttles independently — the rate limit on `.email` is separate from
+  `.phone`. This mirrors the *server*, whose limit is also per endpoint — 5 RPS on
+  `/enrichment/email` and 5 RPS on `/enrichment/phone` run concurrently, and
+  `key-info.max_requests_per_seconds` is the per-endpoint budget — so a single client stays
+  under the limit on every endpoint without endpoints competing. `blitz-api-js` does the
+  same (a token-bucket limiter per endpoint), so the two SDKs stay in parity; only the
+  algorithm differs (sliding window vs. token bucket). The remaining overflow case is
+  **multiple processes** sharing one endpoint's budget, which leans on the 429 → retry
+  backstop.
 - **Retry policy:** 429 → wait `Retry-After` (delta-seconds or HTTP-date), else 60 s,
   **clamped to `MAX_RETRY_WAIT_SECONDS` (120 s)** so a pathological header can't sleep the
   client for hours; 5xx → exponential backoff + jitter; **401/402/404 → raise
@@ -387,6 +399,9 @@ the very first `0.1.0`, see the first-release note in `CONTRIBUTING.md`.
 
 - No streaming and no built-in response caching. (Per-call `timeout=` IS supported.)
 - Rate limiter does not auto-detect the per-key limit from `key-info` (uses 5 rps).
+- Client-side rate limiting is per process: it mirrors the server's per-endpoint limit for
+  one client, but multiple processes sharing an endpoint's budget can still exceed it and
+  rely on the 429 retry path (see §5).
 - The full OpenAPI spec is not vendored (only the de-duplicated enum value lists, cached
   from the live spec by `gen_enums.py --fetch`) — see §5.
 - Response models are validated only against the spec's *examples*, not a formal

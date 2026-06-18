@@ -2,10 +2,12 @@
 # Do not edit by hand — edit the async source and run `python scripts/gen_sync.py`.
 """Client-side sliding-window rate limiter (async source; sync twin generated).
 
-The API enforces a per-key request rate (5 req/s by default). This limiter throttles
-outgoing requests *before* they are sent so a single client instance stays under the
-limit proactively; the server-side 429 retry path is the backstop for bursts across
-processes.
+The API enforces a per-endpoint request rate (5 req/s by default). This limiter throttles
+outgoing requests *before* they are sent. The client holds one limiter **per endpoint
+path** (see ``_client_async.py``), so each endpoint is throttled to ``rps`` independently,
+mirroring the server's per-endpoint budget; a single client instance therefore stays under
+the limit on every endpoint on its own. The server-side 429 retry path is the backstop for
+bursts across processes, which share the same per-endpoint budget.
 
 The algorithm is a sliding window: at most ``rps`` requests may begin in any rolling
 one-second window. This matches the Blitz docs ("max 5 requests per 1000 ms") and the
