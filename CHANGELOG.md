@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/api-blitz/blitz-api-py/compare/v0.4.0...v0.5.0) (2026-06-18)
+
+
+### Features
+
+* scope client-side rate limiting per endpoint ([#13](https://github.com/api-blitz/blitz-api-py/issues/13)) ([de5308b](https://github.com/api-blitz/blitz-api-py/commit/de5308b6995edc68dd1e43a8554296b7de095df2))
+
 ## [0.4.0](https://github.com/api-blitz/blitz-api-py/compare/v0.3.0...v0.4.0) (2026-06-17)
 
 
