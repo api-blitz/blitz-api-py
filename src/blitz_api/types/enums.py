@@ -18,7 +18,7 @@ __all__ = [
     "SalesRegion",
     "JobFunction",
     "JobLevel",
-    "FundingType",
+    "LastFundingType",
 ]
 
 
@@ -634,7 +634,7 @@ class JobLevel(str, Enum):
     VP = 'VP'
 
 
-class FundingType(str, Enum):
+class LastFundingType(str, Enum):
     SERIES_UNKNOWN = 'Series unknown'
     PRE_SEED = 'Pre seed'
     SEED = 'Seed'

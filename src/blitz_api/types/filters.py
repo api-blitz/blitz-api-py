@@ -16,10 +16,10 @@ from .enums import (
     CompanyType,
     Continent,
     EmployeeRange,
-    FundingType,
     Industry,
     JobFunction,
     JobLevel,
+    LastFundingType,
     SalesRegion,
 )
 
@@ -31,7 +31,7 @@ from .enums import (
 IndustryValue = Industry | str
 CompanyTypeValue = CompanyType | str
 EmployeeRangeValue = EmployeeRange | str
-FundingTypeValue = FundingType | str
+LastFundingTypeValue = LastFundingType | str
 ContinentValue = Continent | str
 SalesRegionValue = SalesRegion | str
 JobFunctionValue = JobFunction | str
@@ -59,11 +59,11 @@ class CompanyTypeFilter(TypedDict, total=False):
     exclude: list[CompanyTypeValue]
 
 
-class FundingTypeFilter(TypedDict, total=False):
+class LastFundingTypeFilter(TypedDict, total=False):
     """Include/exclude filter over the last funding round type."""
 
-    include: list[FundingTypeValue]
-    exclude: list[FundingTypeValue]
+    include: list[LastFundingTypeValue]
+    exclude: list[LastFundingTypeValue]
 
 
 class RangeFilter(TypedDict, total=False):
@@ -101,7 +101,7 @@ class CompanyFilter(TypedDict, total=False):
     total_funding: RangeFilter
     last_funding_amount: RangeFilter
     last_funding_year: RangeFilter
-    last_funding_type: FundingTypeFilter
+    last_funding_type: LastFundingTypeFilter
     lead_investors: KeywordFilter
     keywords: KeywordFilter
     founded_year: RangeFilter

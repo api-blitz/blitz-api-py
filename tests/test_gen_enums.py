@@ -139,7 +139,7 @@ def test_maps_all_eight_owning_properties_in_canonical_order() -> None:
         "SalesRegion",
         "JobFunction",
         "JobLevel",
-        "FundingType",
+        "LastFundingType",
     ]
     assert enums == {
         "Industry": INDUSTRY,
@@ -149,7 +149,7 @@ def test_maps_all_eight_owning_properties_in_canonical_order() -> None:
         "SalesRegion": SALES_REGION,
         "JobFunction": JOB_FUNCTION,
         "JobLevel": JOB_LEVEL,
-        "FundingType": FUNDING_TYPE,
+        "LastFundingType": FUNDING_TYPE,
     }
 
 

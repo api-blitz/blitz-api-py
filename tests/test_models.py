@@ -5,8 +5,8 @@ from __future__ import annotations
 from blitz_api import CursorPage, PageNumberPage
 from blitz_api.types import (
     Company,
-    CompanyCountryDistributionResponse,
-    CompanyDepartmentDistributionResponse,
+    CompanyDistributionByCountryResponse,
+    CompanyDistributionByDepartmentResponse,
     CompanyEnrichmentResponse,
     CurrentDateResponse,
     DomainToLinkedinResponse,
@@ -122,7 +122,7 @@ def test_current_date_parses() -> None:
 
 
 def test_country_distribution_parses() -> None:
-    resp = CompanyCountryDistributionResponse.model_validate(data.COUNTRY_DISTRIBUTION)
+    resp = CompanyDistributionByCountryResponse.model_validate(data.COUNTRY_DISTRIBUTION)
     assert resp.total_employees == 1234
     assert resp.distribution[0].country == "US"
     assert resp.distribution[0].count == 900
@@ -132,7 +132,7 @@ def test_country_distribution_parses() -> None:
 
 
 def test_department_distribution_parses() -> None:
-    resp = CompanyDepartmentDistributionResponse.model_validate(data.DEPARTMENT_DISTRIBUTION)
+    resp = CompanyDistributionByDepartmentResponse.model_validate(data.DEPARTMENT_DISTRIBUTION)
     assert resp.total_employees == 1234
     assert resp.distribution[0].department == "Engineering"
     assert resp.distribution[0].count == 320
