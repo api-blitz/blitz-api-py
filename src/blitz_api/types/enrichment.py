@@ -14,6 +14,10 @@ __all__ = [
     "CompanyEnrichmentResponse",
     "DomainToLinkedinResponse",
     "LinkedinToDomainResponse",
+    "CountryDistributionItem",
+    "CompanyCountryDistributionResponse",
+    "DepartmentDistributionItem",
+    "CompanyDepartmentDistributionResponse",
 ]
 
 
@@ -74,3 +78,52 @@ class LinkedinToDomainResponse(BlitzModel):
 
     found: bool | None = None
     email_domain: str | None = None
+
+
+class CountryDistributionItem(BlitzModel):
+    """Employee count for a single country.
+
+    ``country`` is an ISO 3166-1 alpha-2 code (e.g. ``"US"``, ``"GB"``), or the
+    literal ``"unknown"`` bucket for employees whose country couldn't be determined.
+    ``percentage_ratio`` is the bucket's share of ``total_employees`` (0-100, to 2
+    decimals).
+    """
+
+    country: str | None = None
+    count: int | None = None
+    percentage_ratio: float | None = None
+
+
+class CompanyCountryDistributionResponse(BlitzModel):
+    """Result of ``enrichment.company_distribution_by_country``.
+
+    Served by ``POST /v2/enrichment/company-distribution-by-country``.
+    """
+
+    company_linkedin_url: str | None = None
+    total_employees: int | None = None
+    distribution: list[CountryDistributionItem] = []
+
+
+class DepartmentDistributionItem(BlitzModel):
+    """Employee count for a single department (Blitz job function).
+
+    Employees with no classified department are counted under ``"Other"``.
+    ``percentage_ratio`` is the bucket's share of ``total_employees`` (0-100, to 2
+    decimals).
+    """
+
+    department: str | None = None
+    count: int | None = None
+    percentage_ratio: float | None = None
+
+
+class CompanyDepartmentDistributionResponse(BlitzModel):
+    """Result of ``enrichment.company_distribution_by_department``.
+
+    Served by ``POST /v2/enrichment/company-distribution-by-department``.
+    """
+
+    company_linkedin_url: str | None = None
+    total_employees: int | None = None
+    distribution: list[DepartmentDistributionItem] = []

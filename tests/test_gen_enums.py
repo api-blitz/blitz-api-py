@@ -24,6 +24,7 @@ CONTINENT = ["Africa", "Asia"]
 SALES_REGION = ["NORAM", "EMEA"]
 JOB_FUNCTION = ["Engineering", "Finance & Accounting"]
 JOB_LEVEL = ["C-Team", "Director"]
+FUNDING_TYPE = ["Series A", "Seed"]
 
 DEFAULTS: dict[str, list[str]] = {
     "industry": INDUSTRY,
@@ -33,6 +34,7 @@ DEFAULTS: dict[str, list[str]] = {
     "sales_region": SALES_REGION,
     "job_function": JOB_FUNCTION,
     "job_level": JOB_LEVEL,
+    "last_funding_type": FUNDING_TYPE,
 }
 
 
@@ -87,6 +89,7 @@ def _company_block(v: dict[str, list[str]]) -> dict[str, object]:
                     "industry": _filter_prop(v["industry"]),
                     "type": _filter_prop(v["type"]),
                     "employee_range": _array_enum_prop(v["employee_range"]),
+                    "last_funding_type": _filter_prop(v["last_funding_type"]),
                     "hq": _obj_schema(
                         {
                             "continent": _array_enum_prop(v["continent"]),
@@ -100,9 +103,9 @@ def _company_block(v: dict[str, list[str]]) -> dict[str, object]:
 
 
 def _full_spec(overrides: dict[str, list[str]] | None = None) -> dict[str, object]:
-    """A complete spec mirroring the real one: all 7 enums, each repeated across two
-    content-types (json + multipart) and, for industry/type, include + exclude, plus
-    continent/sales_region under both companies.hq and employee-finder. Every
+    """A complete spec mirroring the real one: all 8 enums, each repeated across two
+    content-types (json + multipart) and, for industry/type/last_funding_type, include +
+    exclude, plus continent/sales_region under both companies.hq and employee-finder. Every
     occurrence is identical, so it round-trips cleanly.
     """
     v = {**DEFAULTS, **(overrides or {})}
@@ -125,7 +128,7 @@ def _full_spec(overrides: dict[str, list[str]] | None = None) -> dict[str, objec
     }
 
 
-def test_maps_all_seven_owning_properties_in_canonical_order() -> None:
+def test_maps_all_eight_owning_properties_in_canonical_order() -> None:
     g = _load_gen_enums()
     enums = g.extract_enums(_full_spec())
     assert list(enums) == [
@@ -136,6 +139,7 @@ def test_maps_all_seven_owning_properties_in_canonical_order() -> None:
         "SalesRegion",
         "JobFunction",
         "JobLevel",
+        "FundingType",
     ]
     assert enums == {
         "Industry": INDUSTRY,
@@ -145,6 +149,7 @@ def test_maps_all_seven_owning_properties_in_canonical_order() -> None:
         "SalesRegion": SALES_REGION,
         "JobFunction": JOB_FUNCTION,
         "JobLevel": JOB_LEVEL,
+        "FundingType": FUNDING_TYPE,
     }
 
 
@@ -212,7 +217,7 @@ def test_warns_about_and_ignores_an_unmapped_property(
     }
     enums = g.extract_enums(spec)
     assert "Seniority" not in enums
-    assert len(enums) == 7
+    assert len(enums) == 8
     assert "seniority" in capsys.readouterr().err
 
 

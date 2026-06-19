@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 from ..._compat import TimeoutParam
 from ...types.enrichment import (
+    CompanyCountryDistributionResponse,
+    CompanyDepartmentDistributionResponse,
     CompanyEnrichmentResponse,
     DomainToLinkedinResponse,
     EmailEnrichmentResponse,
@@ -25,6 +27,8 @@ _PHONE_TO_PERSON = "/v2/enrichment/phone-to-person"
 _COMPANY = "/v2/enrichment/company"
 _DOMAIN_TO_LINKEDIN = "/v2/enrichment/domain-to-linkedin"
 _LINKEDIN_TO_DOMAIN = "/v2/enrichment/linkedin-to-domain"
+_DISTRIBUTION_BY_COUNTRY = "/v2/enrichment/company-distribution-by-country"
+_DISTRIBUTION_BY_DEPARTMENT = "/v2/enrichment/company-distribution-by-department"
 
 
 class AsyncEnrichmentResource:
@@ -112,5 +116,36 @@ class AsyncEnrichmentResource:
             _LINKEDIN_TO_DOMAIN,
             body={"company_linkedin_url": company_linkedin_url},
             cast_to=LinkedinToDomainResponse,
+            timeout=timeout,
+        )
+
+    async def company_distribution_by_country(
+        self, *, company_linkedin_url: str, timeout: TimeoutParam = None
+    ) -> CompanyCountryDistributionResponse:
+        """Get a company's employee count broken down by country.
+
+        Countries are reported as ISO 3166-1 alpha-2 codes (e.g. ``US``, ``GB``);
+        employees whose country can't be determined are bucketed under ``"unknown"``.
+        """
+        return await self._client._request(
+            "POST",
+            _DISTRIBUTION_BY_COUNTRY,
+            body={"company_linkedin_url": company_linkedin_url},
+            cast_to=CompanyCountryDistributionResponse,
+            timeout=timeout,
+        )
+
+    async def company_distribution_by_department(
+        self, *, company_linkedin_url: str, timeout: TimeoutParam = None
+    ) -> CompanyDepartmentDistributionResponse:
+        """Get a company's employee count broken down by department.
+
+        Employees with no classified department are counted under ``"Other"``.
+        """
+        return await self._client._request(
+            "POST",
+            _DISTRIBUTION_BY_DEPARTMENT,
+            body={"company_linkedin_url": company_linkedin_url},
+            cast_to=CompanyDepartmentDistributionResponse,
             timeout=timeout,
         )
