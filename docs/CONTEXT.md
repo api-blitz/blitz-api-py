@@ -51,8 +51,8 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
 | POST | `/v2/enrichment/company` | `enrichment.company()` | `CompanyEnrichmentResponse` |
 | POST | `/v2/enrichment/domain-to-linkedin` | `enrichment.domain_to_linkedin()` | `DomainToLinkedinResponse` |
 | POST | `/v2/enrichment/linkedin-to-domain` | `enrichment.linkedin_to_domain()` | `LinkedinToDomainResponse` |
-| POST | `/v2/enrichment/company-distribution-by-country` | `enrichment.company_distribution_by_country()` | `CompanyCountryDistributionResponse` |
-| POST | `/v2/enrichment/company-distribution-by-department` | `enrichment.company_distribution_by_department()` | `CompanyDepartmentDistributionResponse` |
+| POST | `/v2/enrichment/company-distribution-by-country` | `enrichment.company_distribution_by_country()` | `CompanyDistributionByCountryResponse` |
+| POST | `/v2/enrichment/company-distribution-by-department` | `enrichment.company_distribution_by_department()` | `CompanyDistributionByDepartmentResponse` |
 | POST | `/v2/utils/current-date` | `utils.current_date()` | `CurrentDateResponse` |
 
 ### How to re-derive the API surface (IMPORTANT)
@@ -127,14 +127,14 @@ src/blitz_api/
     _models.py       BlitzModel — base for all responses (extra="allow", see §5).
     shared.py        Person, Experience, Education, Certification, Location, HQ, Company.
     enums.py         GENERATED. Industry (534) + CompanyType/EmployeeRange/Continent/
-                     SalesRegion/JobFunction/JobLevel/FundingType. Never hand-edit (see §7).
+                     SalesRegion/JobFunction/JobLevel/LastFundingType. Never hand-edit (see §7).
     filters.py       Request TypedDicts (CompanyFilter, PeopleFilter, CascadeTier, ...)
                      and *Value type aliases (e.g. IndustryValue = Industry | str).
     account.py       KeyInfo, ActivePlan
     search.py        WaterfallIcpResponse, WaterfallIcpMatch (the paginated search results
                      return the page classes below, not per-endpoint models)
     enrichment.py    7 enrichment response models + EmailMatch + the two company-distribution
-                     responses (CompanyCountryDistributionResponse / *Department*) + per-item models
+                     responses (CompanyDistributionByCountryResponse / *ByDepartment*) + per-item models
     utils.py         CurrentDateResponse
     __init__.py      Re-exports the public type surface (grouped).
   _pagination_base.py   BasePage — shared pagination state/context + _bind (no async).
@@ -487,3 +487,20 @@ the history rather than re-litigating it.
   `CompanyCountryDistributionResponse`; department pair unchanged). Country buckets are ISO
   3166-1 alpha-2 codes plus a literal `"unknown"` bucket. No deprecated shims (pre-1.0; the
   user opted into the break). Still 15 endpoints. Cross-check `blitz-api-js` for parity.
+- **2026-06-19** — Renamed three public type identifiers added in 1.0.0 to be spec-faithful
+  ([#17](https://github.com/api-blitz/blitz-api-py/issues/17)), a **breaking** change (`feat!`,
+  major bump): the `last_funding_type` enum `FundingType` → **`LastFundingType`** (every other
+  generated enum PascalCases its full field key — `job_level → JobLevel`; this was the only one
+  dropping a prefix), and the two distribution responses `CompanyCountryDistributionResponse`
+  / `CompanyDepartmentDistributionResponse` → **`CompanyDistributionBy{Country,Department}Response`**
+  (matching the method/path word order, e.g. `company_distribution_by_country()`). The per-item
+  models were renamed alongside for path consistency (`CountryDistributionItem` /
+  `DepartmentDistributionItem` → `CompanyDistributionBy{Country,Department}Item`), and the
+  filter aliases followed (`FundingTypeFilter`/`FundingTypeValue` → `LastFundingType*`). The
+  **wire surface is unchanged** — method names, request/response keys (`last_funding_type`,
+  `distribution`, …), and enum values are byte-identical; only the PascalCase identifiers moved.
+  Enum regenerated via `gen_enums.py --fetch` (cache key + class, values byte-identical); sync
+  resource regenerated via `gen_sync.py`. Note: at the time of this change `blitz-api-js@main`
+  had *not yet* implemented funding filters or the distribution endpoints (its enums ended at
+  `JobLevel`, `enrichment.ts` at `LinkedinToDomainResponse`), so issue #17's "JS already uses
+  these names" was aspirational — these are the names JS should adopt when it catches up.

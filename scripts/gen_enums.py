@@ -64,7 +64,7 @@ PROPERTY_TO_CLASS: dict[str, str] = {
     "sales_region": "SalesRegion",
     "job_function": "JobFunction",
     "job_level": "JobLevel",
-    "last_funding_type": "FundingType",
+    "last_funding_type": "LastFundingType",
 }
 
 # OpenAPI/JSON-Schema keywords skipped when resolving an enum's owning property.

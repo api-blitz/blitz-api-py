@@ -14,10 +14,10 @@ __all__ = [
     "CompanyEnrichmentResponse",
     "DomainToLinkedinResponse",
     "LinkedinToDomainResponse",
-    "CountryDistributionItem",
-    "CompanyCountryDistributionResponse",
-    "DepartmentDistributionItem",
-    "CompanyDepartmentDistributionResponse",
+    "CompanyDistributionByCountryItem",
+    "CompanyDistributionByCountryResponse",
+    "CompanyDistributionByDepartmentItem",
+    "CompanyDistributionByDepartmentResponse",
 ]
 
 
@@ -80,7 +80,7 @@ class LinkedinToDomainResponse(BlitzModel):
     email_domain: str | None = None
 
 
-class CountryDistributionItem(BlitzModel):
+class CompanyDistributionByCountryItem(BlitzModel):
     """Employee count for a single country.
 
     ``country`` is an ISO 3166-1 alpha-2 code (e.g. ``"US"``, ``"GB"``), or the
@@ -94,7 +94,7 @@ class CountryDistributionItem(BlitzModel):
     percentage_ratio: float | None = None
 
 
-class CompanyCountryDistributionResponse(BlitzModel):
+class CompanyDistributionByCountryResponse(BlitzModel):
     """Result of ``enrichment.company_distribution_by_country``.
 
     Served by ``POST /v2/enrichment/company-distribution-by-country``.
@@ -102,10 +102,10 @@ class CompanyCountryDistributionResponse(BlitzModel):
 
     company_linkedin_url: str | None = None
     total_employees: int | None = None
-    distribution: list[CountryDistributionItem] = []
+    distribution: list[CompanyDistributionByCountryItem] = []
 
 
-class DepartmentDistributionItem(BlitzModel):
+class CompanyDistributionByDepartmentItem(BlitzModel):
     """Employee count for a single department (Blitz job function).
 
     Employees with no classified department are counted under ``"Other"``.
@@ -118,7 +118,7 @@ class DepartmentDistributionItem(BlitzModel):
     percentage_ratio: float | None = None
 
 
-class CompanyDepartmentDistributionResponse(BlitzModel):
+class CompanyDistributionByDepartmentResponse(BlitzModel):
     """Result of ``enrichment.company_distribution_by_department``.
 
     Served by ``POST /v2/enrichment/company-distribution-by-department``.
@@ -126,4 +126,4 @@ class CompanyDepartmentDistributionResponse(BlitzModel):
 
     company_linkedin_url: str | None = None
     total_employees: int | None = None
-    distribution: list[DepartmentDistributionItem] = []
+    distribution: list[CompanyDistributionByDepartmentItem] = []

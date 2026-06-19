@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 
 from ..._compat import TimeoutParam
 from ...types.enrichment import (
-    CompanyCountryDistributionResponse,
-    CompanyDepartmentDistributionResponse,
+    CompanyDistributionByCountryResponse,
+    CompanyDistributionByDepartmentResponse,
     CompanyEnrichmentResponse,
     DomainToLinkedinResponse,
     EmailEnrichmentResponse,
@@ -123,7 +123,7 @@ class EnrichmentResource:
 
     def company_distribution_by_country(
         self, *, company_linkedin_url: str, timeout: TimeoutParam = None
-    ) -> CompanyCountryDistributionResponse:
+    ) -> CompanyDistributionByCountryResponse:
         """Get a company's employee count broken down by country.
 
         Countries are reported as ISO 3166-1 alpha-2 codes (e.g. ``US``, ``GB``);
@@ -133,13 +133,13 @@ class EnrichmentResource:
             "POST",
             _DISTRIBUTION_BY_COUNTRY,
             body={"company_linkedin_url": company_linkedin_url},
-            cast_to=CompanyCountryDistributionResponse,
+            cast_to=CompanyDistributionByCountryResponse,
             timeout=timeout,
         )
 
     def company_distribution_by_department(
         self, *, company_linkedin_url: str, timeout: TimeoutParam = None
-    ) -> CompanyDepartmentDistributionResponse:
+    ) -> CompanyDistributionByDepartmentResponse:
         """Get a company's employee count broken down by department.
 
         Employees with no classified department are counted under ``"Other"``.
@@ -148,6 +148,6 @@ class EnrichmentResource:
             "POST",
             _DISTRIBUTION_BY_DEPARTMENT,
             body={"company_linkedin_url": company_linkedin_url},
-            cast_to=CompanyDepartmentDistributionResponse,
+            cast_to=CompanyDistributionByDepartmentResponse,
             timeout=timeout,
         )

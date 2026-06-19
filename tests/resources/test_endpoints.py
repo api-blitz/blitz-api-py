@@ -10,16 +10,16 @@ from pytest_httpx import HTTPXMock
 
 from blitz_api import AsyncBlitzAPI, AsyncCursorPage, BlitzAPI, CursorPage, PageNumberPage
 from blitz_api.types import (
-    CompanyCountryDistributionResponse,
-    CompanyDepartmentDistributionResponse,
+    CompanyDistributionByCountryResponse,
+    CompanyDistributionByDepartmentResponse,
     CompanyEnrichmentResponse,
     CurrentDateResponse,
     EmailEnrichmentResponse,
-    FundingType,
     Industry,
     JobFunction,
     JobLevel,
     KeyInfo,
+    LastFundingType,
     WaterfallIcpResponse,
 )
 from tests import data
@@ -95,7 +95,7 @@ def test_search_people_serializes_funding_and_hq_state_filters(httpx_mock: HTTPX
             "total_funding": {"min": 1000000},
             "last_funding_amount": {"min": 500000, "max": 5000000},
             "last_funding_year": {"min": 2022},
-            "last_funding_type": {"include": [FundingType.SERIES_A, FundingType.SERIES_B]},
+            "last_funding_type": {"include": [LastFundingType.SERIES_A, LastFundingType.SERIES_B]},
             "lead_investors": {"include": ["Sequoia"]},
             "hq": {"state": {"include": ["California"]}, "country_code": ["US"]},
         },
@@ -176,7 +176,7 @@ def test_company_distribution_by_country(httpx_mock: HTTPXMock) -> None:
     result = _client().enrichment.company_distribution_by_country(
         company_linkedin_url="https://www.linkedin.com/company/openai"
     )
-    assert isinstance(result, CompanyCountryDistributionResponse)
+    assert isinstance(result, CompanyDistributionByCountryResponse)
     assert result.total_employees == 1234
     assert result.distribution[0].country == "US"
     assert result.distribution[-1].country == "unknown"
@@ -195,7 +195,7 @@ async def test_async_company_distribution_by_country(httpx_mock: HTTPXMock) -> N
         result = await client.enrichment.company_distribution_by_country(
             company_linkedin_url="https://www.linkedin.com/company/openai"
         )
-    assert isinstance(result, CompanyCountryDistributionResponse)
+    assert isinstance(result, CompanyDistributionByCountryResponse)
     assert result.distribution[0].count == 900
 
 
@@ -208,7 +208,7 @@ def test_company_distribution_by_department(httpx_mock: HTTPXMock) -> None:
     result = _client().enrichment.company_distribution_by_department(
         company_linkedin_url="https://www.linkedin.com/company/openai"
     )
-    assert isinstance(result, CompanyDepartmentDistributionResponse)
+    assert isinstance(result, CompanyDistributionByDepartmentResponse)
     assert result.total_employees == 1234
     assert result.distribution[0].department == "Engineering"
     assert _sent_body(httpx_mock) == {
@@ -226,7 +226,7 @@ async def test_async_company_distribution_by_department(httpx_mock: HTTPXMock) -
         result = await client.enrichment.company_distribution_by_department(
             company_linkedin_url="https://www.linkedin.com/company/openai"
         )
-    assert isinstance(result, CompanyDepartmentDistributionResponse)
+    assert isinstance(result, CompanyDistributionByDepartmentResponse)
     assert result.distribution[-1].department == "Other"
     assert result.distribution[-1].count == 12
 
