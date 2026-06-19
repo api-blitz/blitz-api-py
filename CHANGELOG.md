@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/api-blitz/blitz-api-py/compare/v0.5.0...v1.0.0) (2026-06-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* funding/HQ-state search filters + relocate distribution endpoints ([#15](https://github.com/api-blitz/blitz-api-py/issues/15))
+
+### Features
+
+* funding/HQ-state search filters + relocate distribution endpoints ([#15](https://github.com/api-blitz/blitz-api-py/issues/15)) ([f711ee8](https://github.com/api-blitz/blitz-api-py/commit/f711ee81a9e046bd7e354b593eda9e8d978768e3))
+
 ## [0.5.0](https://github.com/api-blitz/blitz-api-py/compare/v0.4.0...v0.5.0) (2026-06-18)
 
 
