@@ -10,10 +10,12 @@ from pytest_httpx import HTTPXMock
 
 from blitz_api import AsyncBlitzAPI, AsyncCursorPage, BlitzAPI, CursorPage, PageNumberPage
 from blitz_api.types import (
+    CompanyCountryDistributionResponse,
     CompanyDepartmentDistributionResponse,
     CompanyEnrichmentResponse,
     CurrentDateResponse,
     EmailEnrichmentResponse,
+    FundingType,
     Industry,
     JobFunction,
     JobLevel,
@@ -86,6 +88,32 @@ def test_search_people_serializes_enums_and_drops_none(httpx_mock: HTTPXMock) ->
     assert "cursor" not in body  # None args are omitted
 
 
+def test_search_people_serializes_funding_and_hq_state_filters(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(url=url("/v2/search/people"), method="POST", json=data.PEOPLE_SEARCH)
+    _client().search.people(
+        company={
+            "total_funding": {"min": 1000000},
+            "last_funding_amount": {"min": 500000, "max": 5000000},
+            "last_funding_year": {"min": 2022},
+            "last_funding_type": {"include": [FundingType.SERIES_A, FundingType.SERIES_B]},
+            "lead_investors": {"include": ["Sequoia"]},
+            "hq": {"state": {"include": ["California"]}, "country_code": ["US"]},
+        },
+        max_results=5,
+    )
+    assert _sent_body(httpx_mock) == {
+        "company": {
+            "total_funding": {"min": 1000000},
+            "last_funding_amount": {"min": 500000, "max": 5000000},
+            "last_funding_year": {"min": 2022},
+            "last_funding_type": {"include": ["Series A", "Series B"]},
+            "lead_investors": {"include": ["Sequoia"]},
+            "hq": {"state": {"include": ["California"]}, "country_code": ["US"]},
+        },
+        "max_results": 5,
+    }
+
+
 def test_search_companies(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(
         url=url("/v2/search/companies"), method="POST", json=data.COMPANY_SEARCH
@@ -139,13 +167,45 @@ def test_current_date(httpx_mock: HTTPXMock) -> None:
     assert _sent_body(httpx_mock) == {"region": "America/New_York"}
 
 
-def test_company_department_distribution(httpx_mock: HTTPXMock) -> None:
+def test_company_distribution_by_country(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(
-        url=url("/v2/utils/company-department-distribution"),
+        url=url("/v2/enrichment/company-distribution-by-country"),
+        method="POST",
+        json=data.COUNTRY_DISTRIBUTION,
+    )
+    result = _client().enrichment.company_distribution_by_country(
+        company_linkedin_url="https://www.linkedin.com/company/openai"
+    )
+    assert isinstance(result, CompanyCountryDistributionResponse)
+    assert result.total_employees == 1234
+    assert result.distribution[0].country == "US"
+    assert result.distribution[-1].country == "unknown"
+    assert _sent_body(httpx_mock) == {
+        "company_linkedin_url": "https://www.linkedin.com/company/openai"
+    }
+
+
+async def test_async_company_distribution_by_country(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/enrichment/company-distribution-by-country"),
+        method="POST",
+        json=data.COUNTRY_DISTRIBUTION,
+    )
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        result = await client.enrichment.company_distribution_by_country(
+            company_linkedin_url="https://www.linkedin.com/company/openai"
+        )
+    assert isinstance(result, CompanyCountryDistributionResponse)
+    assert result.distribution[0].count == 900
+
+
+def test_company_distribution_by_department(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/enrichment/company-distribution-by-department"),
         method="POST",
         json=data.DEPARTMENT_DISTRIBUTION,
     )
-    result = _client().utils.company_department_distribution(
+    result = _client().enrichment.company_distribution_by_department(
         company_linkedin_url="https://www.linkedin.com/company/openai"
     )
     assert isinstance(result, CompanyDepartmentDistributionResponse)
@@ -156,14 +216,14 @@ def test_company_department_distribution(httpx_mock: HTTPXMock) -> None:
     }
 
 
-async def test_async_company_department_distribution(httpx_mock: HTTPXMock) -> None:
+async def test_async_company_distribution_by_department(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(
-        url=url("/v2/utils/company-department-distribution"),
+        url=url("/v2/enrichment/company-distribution-by-department"),
         method="POST",
         json=data.DEPARTMENT_DISTRIBUTION,
     )
     async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
-        result = await client.utils.company_department_distribution(
+        result = await client.enrichment.company_distribution_by_department(
             company_linkedin_url="https://www.linkedin.com/company/openai"
         )
     assert isinstance(result, CompanyDepartmentDistributionResponse)

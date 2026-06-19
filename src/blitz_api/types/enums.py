@@ -18,6 +18,7 @@ __all__ = [
     "SalesRegion",
     "JobFunction",
     "JobLevel",
+    "FundingType",
 ]
 
 
@@ -631,3 +632,29 @@ class JobLevel(str, Enum):
     OTHER = 'Other'
     STAFF = 'Staff'
     VP = 'VP'
+
+
+class FundingType(str, Enum):
+    SERIES_UNKNOWN = 'Series unknown'
+    PRE_SEED = 'Pre seed'
+    SEED = 'Seed'
+    SERIES_A = 'Series A'
+    SERIES_B = 'Series B'
+    SERIES_C = 'Series C'
+    SERIES_D = 'Series D'
+    SERIES_E_J = 'Series E-J'
+    GRANT = 'Grant'
+    ANGEL = 'Angel'
+    PRIVATE_EQUITY = 'Private equity'
+    DEBT_FINANCING = 'Debt financing'
+    NON_EQUITY_ASSISTANCE = 'Non equity assistance'
+    POST_IPO_EQUITY = 'Post IPO equity'
+    UNDISCLOSED = 'Undisclosed'
+    POST_IPO_DEBT = 'Post IPO debt'
+    PRODUCT_CROWDFUNDING = 'Product crowdfunding'
+    EQUITY_CROWDFUNDING = 'Equity crowdfunding'
+    CORPORATE_ROUND = 'Corporate round'
+    CONVERTIBLE_NOTE = 'Convertible note'
+    SECONDARY_MARKET = 'Secondary market'
+    INITIAL_COIN_OFFERING = 'Initial coin offering'
+    POST_IPO_SECONDARY = 'Post IPO secondary'

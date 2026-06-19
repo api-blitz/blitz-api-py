@@ -16,6 +16,7 @@ from .enums import (
     CompanyType,
     Continent,
     EmployeeRange,
+    FundingType,
     Industry,
     JobFunction,
     JobLevel,
@@ -30,6 +31,7 @@ from .enums import (
 IndustryValue = Industry | str
 CompanyTypeValue = CompanyType | str
 EmployeeRangeValue = EmployeeRange | str
+FundingTypeValue = FundingType | str
 ContinentValue = Continent | str
 SalesRegionValue = SalesRegion | str
 JobFunctionValue = JobFunction | str
@@ -57,6 +59,13 @@ class CompanyTypeFilter(TypedDict, total=False):
     exclude: list[CompanyTypeValue]
 
 
+class FundingTypeFilter(TypedDict, total=False):
+    """Include/exclude filter over the last funding round type."""
+
+    include: list[FundingTypeValue]
+    exclude: list[FundingTypeValue]
+
+
 class RangeFilter(TypedDict, total=False):
     """Numeric range filter. ``0`` means unset for most fields."""
 
@@ -68,6 +77,7 @@ class CompanyHQFilter(TypedDict, total=False):
     """Headquarters-location filter for company search."""
 
     city: KeywordFilter
+    state: KeywordFilter
     country_code: list[str]
     continent: list[ContinentValue]
     sales_region: list[SalesRegionValue]
@@ -88,6 +98,11 @@ class CompanyFilter(TypedDict, total=False):
     sic_code: KeywordFilter
     web_traffic: RangeFilter
     ad_spend: RangeFilter
+    total_funding: RangeFilter
+    last_funding_amount: RangeFilter
+    last_funding_year: RangeFilter
+    last_funding_type: FundingTypeFilter
+    lead_investors: KeywordFilter
     keywords: KeywordFilter
     founded_year: RangeFilter
     hq: CompanyHQFilter

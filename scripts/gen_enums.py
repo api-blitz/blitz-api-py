@@ -54,7 +54,8 @@ FETCH_ATTEMPTS = 3
 # of an enum is the nearest ancestor key that isn't a structural keyword (see
 # ``STRUCTURAL``). Declared in the canonical output order so the generated cache —
 # and therefore enums.py — is deterministic regardless of spec traversal order.
-# ``type`` only ever appears as ``company.type``.
+# ``type`` only ever appears as ``company.type``; ``last_funding_type`` as
+# ``company.last_funding_type``.
 PROPERTY_TO_CLASS: dict[str, str] = {
     "industry": "Industry",
     "type": "CompanyType",
@@ -63,6 +64,7 @@ PROPERTY_TO_CLASS: dict[str, str] = {
     "sales_region": "SalesRegion",
     "job_function": "JobFunction",
     "job_level": "JobLevel",
+    "last_funding_type": "FundingType",
 }
 
 # OpenAPI/JSON-Schema keywords skipped when resolving an enum's owning property.

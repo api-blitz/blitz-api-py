@@ -51,9 +51,9 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
 | POST | `/v2/enrichment/company` | `enrichment.company()` | `CompanyEnrichmentResponse` |
 | POST | `/v2/enrichment/domain-to-linkedin` | `enrichment.domain_to_linkedin()` | `DomainToLinkedinResponse` |
 | POST | `/v2/enrichment/linkedin-to-domain` | `enrichment.linkedin_to_domain()` | `LinkedinToDomainResponse` |
+| POST | `/v2/enrichment/company-distribution-by-country` | `enrichment.company_distribution_by_country()` | `CompanyCountryDistributionResponse` |
+| POST | `/v2/enrichment/company-distribution-by-department` | `enrichment.company_distribution_by_department()` | `CompanyDepartmentDistributionResponse` |
 | POST | `/v2/utils/current-date` | `utils.current_date()` | `CurrentDateResponse` |
-| POST | `/v2/utils/company-employment-distribution` | `utils.company_employment_distribution()` | `CompanyEmploymentDistributionResponse` |
-| POST | `/v2/utils/company-department-distribution` | `utils.company_department_distribution()` | `CompanyDepartmentDistributionResponse` |
 
 ### How to re-derive the API surface (IMPORTANT)
 
@@ -127,15 +127,15 @@ src/blitz_api/
     _models.py       BlitzModel — base for all responses (extra="allow", see §5).
     shared.py        Person, Experience, Education, Certification, Location, HQ, Company.
     enums.py         GENERATED. Industry (534) + CompanyType/EmployeeRange/Continent/
-                     SalesRegion/JobFunction/JobLevel. Never hand-edit (see §7).
+                     SalesRegion/JobFunction/JobLevel/FundingType. Never hand-edit (see §7).
     filters.py       Request TypedDicts (CompanyFilter, PeopleFilter, CascadeTier, ...)
                      and *Value type aliases (e.g. IndustryValue = Industry | str).
     account.py       KeyInfo, ActivePlan
     search.py        WaterfallIcpResponse, WaterfallIcpMatch (the paginated search results
                      return the page classes below, not per-endpoint models)
-    enrichment.py    7 enrichment response models + EmailMatch
-    utils.py         CurrentDateResponse, CompanyEmploymentDistributionResponse,
-                     CompanyDepartmentDistributionResponse, + per-item models
+    enrichment.py    7 enrichment response models + EmailMatch + the two company-distribution
+                     responses (CompanyCountryDistributionResponse / *Department*) + per-item models
+    utils.py         CurrentDateResponse
     __init__.py      Re-exports the public type surface (grouped).
   _pagination_base.py   BasePage — shared pagination state/context + _bind (no async).
   _pagination_async.py  AsyncPaginator/AsyncCursorPage/AsyncPageNumberPage. HAND-WRITTEN SOURCE.
@@ -467,3 +467,23 @@ the history rather than re-litigating it.
   models stay forward-compatible, not enum-bound). Added to the async source only and
   regenerated the sync class via `gen_sync.py`. Sync+async endpoint tests and a model-parse
   test added (15th endpoint).
+- **2026-06-18** — Synced three endpoints to the live spec (`info.version` 1.0.0). **Find People /
+  Company Search:** the shared `CompanyFilter` gained six funding/HQ fields —
+  `total_funding` / `last_funding_amount` / `last_funding_year` (`RangeFilter`),
+  `last_funding_type` (new `FundingTypeFilter` over the generated **`FundingType`** enum, 23
+  values), `lead_investors` (`KeywordFilter`), and `hq.state` (`KeywordFilter`). `FundingType`
+  was added by mapping `last_funding_type` → `FundingType` in `gen_enums.py`'s
+  `PROPERTY_TO_CLASS` and running `--fetch` (8 enums now; existing seven byte-identical).
+  Response models unchanged — funding is request-only, absent from the people/company examples.
+  **Distribution endpoints (breaking):** the API moved both off the `Utilities` tag to
+  `Company Enrichment` and renamed them, so they were relocated `client.utils.*` →
+  `client.enrichment.*` and renamed `company_employment_distribution` →
+  `company_distribution_by_country` (`POST /v2/enrichment/company-distribution-by-country`) and
+  `company_department_distribution` → `company_distribution_by_department`
+  (`POST /v2/enrichment/company-distribution-by-department`); the old `/v2/utils/company-*`
+  paths are gone from the spec. Response models moved `types/utils.py` → `types/enrichment.py`
+  and the country pair was renamed for parity (`EmploymentDistributionItem` →
+  `CountryDistributionItem`, `CompanyEmploymentDistributionResponse` →
+  `CompanyCountryDistributionResponse`; department pair unchanged). Country buckets are ISO
+  3166-1 alpha-2 codes plus a literal `"unknown"` bucket. No deprecated shims (pre-1.0; the
+  user opted into the break). Still 15 endpoints. Cross-check `blitz-api-js` for parity.

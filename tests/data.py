@@ -151,12 +151,13 @@ CURRENT_DATE: dict[str, Any] = {
     "timezone_name": "(GMT-05:00) New York",
 }
 
-EMPLOYMENT_DISTRIBUTION: dict[str, Any] = {
+COUNTRY_DISTRIBUTION: dict[str, Any] = {
     "company_linkedin_url": "https://www.linkedin.com/company/openai",
     "total_employees": 1234,
     "distribution": [
-        {"country": "US", "count": 900},
-        {"country": "unknown", "count": 54},
+        {"country": "US", "count": 900, "percentage_ratio": 72.93},
+        {"country": "GB", "count": 200, "percentage_ratio": 16.21},
+        {"country": "unknown", "count": 54, "percentage_ratio": 4.38},
     ],
 }
 
@@ -164,9 +165,9 @@ DEPARTMENT_DISTRIBUTION: dict[str, Any] = {
     "company_linkedin_url": "https://www.linkedin.com/company/openai",
     "total_employees": 1234,
     "distribution": [
-        {"department": "Engineering", "count": 320},
-        {"department": "Sales", "count": 210},
-        {"department": "Other", "count": 12},
+        {"department": "Engineering", "count": 320, "percentage_ratio": 25.93},
+        {"department": "Sales", "count": 210, "percentage_ratio": 17.02},
+        {"department": "Other", "count": 12, "percentage_ratio": 0.97},
     ],
 }
 

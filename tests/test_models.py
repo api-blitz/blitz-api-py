@@ -5,8 +5,8 @@ from __future__ import annotations
 from blitz_api import CursorPage, PageNumberPage
 from blitz_api.types import (
     Company,
+    CompanyCountryDistributionResponse,
     CompanyDepartmentDistributionResponse,
-    CompanyEmploymentDistributionResponse,
     CompanyEnrichmentResponse,
     CurrentDateResponse,
     DomainToLinkedinResponse,
@@ -121,11 +121,14 @@ def test_current_date_parses() -> None:
     assert resp.timezone == "America/New_York"
 
 
-def test_employment_distribution_parses() -> None:
-    resp = CompanyEmploymentDistributionResponse.model_validate(data.EMPLOYMENT_DISTRIBUTION)
+def test_country_distribution_parses() -> None:
+    resp = CompanyCountryDistributionResponse.model_validate(data.COUNTRY_DISTRIBUTION)
     assert resp.total_employees == 1234
     assert resp.distribution[0].country == "US"
     assert resp.distribution[0].count == 900
+    assert resp.distribution[0].percentage_ratio == 72.93
+    # Employees whose country couldn't be determined fall in the "unknown" bucket.
+    assert resp.distribution[-1].country == "unknown"
 
 
 def test_department_distribution_parses() -> None:
@@ -133,6 +136,7 @@ def test_department_distribution_parses() -> None:
     assert resp.total_employees == 1234
     assert resp.distribution[0].department == "Engineering"
     assert resp.distribution[0].count == 320
+    assert resp.distribution[0].percentage_ratio == 25.93
     assert resp.distribution[-1].department == "Other"
 
 

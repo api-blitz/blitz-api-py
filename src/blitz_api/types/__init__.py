@@ -9,7 +9,11 @@ from __future__ import annotations
 
 from .account import ActivePlan, KeyInfo
 from .enrichment import (
+    CompanyCountryDistributionResponse,
+    CompanyDepartmentDistributionResponse,
     CompanyEnrichmentResponse,
+    CountryDistributionItem,
+    DepartmentDistributionItem,
     DomainToLinkedinResponse,
     EmailEnrichmentResponse,
     EmailMatch,
@@ -22,6 +26,7 @@ from .enums import (
     CompanyType,
     Continent,
     EmployeeRange,
+    FundingType,
     Industry,
     JobFunction,
     JobLevel,
@@ -32,6 +37,7 @@ from .filters import (
     CompanyFilter,
     CompanyHQFilter,
     CompanyTypeFilter,
+    FundingTypeFilter,
     IndustryFilter,
     KeywordFilter,
     PeopleFilter,
@@ -53,11 +59,7 @@ from .shared import (
     Person,
 )
 from .utils import (
-    CompanyDepartmentDistributionResponse,
-    CompanyEmploymentDistributionResponse,
     CurrentDateResponse,
-    DepartmentDistributionItem,
-    EmploymentDistributionItem,
 )
 
 __all__ = [
@@ -73,6 +75,7 @@ __all__ = [
     "Industry",
     "CompanyType",
     "EmployeeRange",
+    "FundingType",
     "Continent",
     "SalesRegion",
     "JobFunction",
@@ -81,6 +84,7 @@ __all__ = [
     "KeywordFilter",
     "IndustryFilter",
     "CompanyTypeFilter",
+    "FundingTypeFilter",
     "RangeFilter",
     "CompanyHQFilter",
     "CompanyFilter",
@@ -103,10 +107,10 @@ __all__ = [
     "CompanyEnrichmentResponse",
     "DomainToLinkedinResponse",
     "LinkedinToDomainResponse",
-    # utils
-    "CurrentDateResponse",
-    "EmploymentDistributionItem",
-    "CompanyEmploymentDistributionResponse",
+    "CountryDistributionItem",
+    "CompanyCountryDistributionResponse",
     "DepartmentDistributionItem",
     "CompanyDepartmentDistributionResponse",
+    # utils
+    "CurrentDateResponse",
 ]
