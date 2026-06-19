@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/api-blitz/blitz-api-py/compare/v1.0.0...v2.0.0) (2026-06-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* spec-faithful type names for funding enum + distribution responses ([#17](https://github.com/api-blitz/blitz-api-py/issues/17)) (#18)
+
+### Features
+
+* spec-faithful type names for funding enum + distribution responses ([#17](https://github.com/api-blitz/blitz-api-py/issues/17)) ([#18](https://github.com/api-blitz/blitz-api-py/issues/18)) ([95370bd](https://github.com/api-blitz/blitz-api-py/commit/95370bdcd8771a40d9a6bdf921a609dca038bad5))
+
 ## [1.0.0](https://github.com/api-blitz/blitz-api-py/compare/v0.5.0...v1.0.0) (2026-06-19)
 
 
