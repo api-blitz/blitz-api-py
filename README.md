@@ -162,12 +162,13 @@ always call the API from your backend.
 
 ## Endpoints
 
-All methods are grouped into four namespaces:
+All methods are grouped into five namespaces:
 
 | Namespace | Methods |
 | --- | --- |
 | `client.account` | `key_info()` |
 | `client.search` | `people()`, `companies()`, `employee_finder()`, `waterfall_icp()` |
+| `client.jobs` | `search()`, `company()` |
 | `client.enrichment` | `email()`, `phone()`, `email_to_person()`, `phone_to_person()`, `company()`, `domain_to_linkedin()`, `linkedin_to_domain()`, `company_distribution_by_country()`, `company_distribution_by_department()` |
 | `client.utils` | `current_date()` |
 
@@ -177,14 +178,15 @@ member or a raw string.
 
 ## Pagination
 
-The search methods return an **auto-paginating page**: iterate it and the SDK fetches
-each subsequent page for you. `search.people`/`search.companies` are cursor-based;
-`search.employee_finder` is page-based — both behave identically here.
+The search and jobs methods return an **auto-paginating page**: iterate it and the SDK
+fetches each subsequent page for you. `search.people`/`search.companies` and
+`jobs.search`/`jobs.company` are cursor-based; `search.employee_finder` is page-based —
+all behave identically here.
 
 > **`max_results` is the page size, not a total.** It's results per page, and the API
 > **bills 1 credit per result returned**. A bare `for person in client.search.people(...)`
 > loop streams *every* match up to the server-side limit (people: 50k results / 1k pages;
-> employee finder: 10k), which can be a lot of credits. Bound it with **`max_items`** on
+> employee finder: 10k; jobs: 5k), which can be a lot of credits. Bound it with **`max_items`** on
 > `.collect()` / `.auto_paging_iter()` (a client-side total cap — never sent on the wire),
 > `break` out of the loop, or drive pages manually.
 
@@ -204,6 +206,13 @@ for person in client.search.people(...).auto_paging_iter(max_items=200):
 # Per-page control: inspect totals / cursors as you go.
 for page in client.search.companies(company={...}).iter_pages(max_pages=5):
     print(page.total_results, len(page.results), page.cursor)
+
+# Jobs are cursor-paginated too — surface hiring signals matching your ICP.
+for job in client.jobs.search(
+    job={"title": {"include": ["Head of Sales"]}, "date_posted": {"last_days": 30}},
+    company={"industry": {"include": ["Software Development"]}, "size": {"include": ["51-200"]}},
+).auto_paging_iter(max_items=200):
+    print(job.company_name, job.title, job.location.city if job.location else None)
 
 # Or page manually.
 page = client.search.people(people={...}, max_results=50)

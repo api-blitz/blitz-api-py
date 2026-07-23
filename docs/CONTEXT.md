@@ -35,7 +35,7 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
   404 key not found · 429 rate limited (official client waits 60 s then retries) ·
   5xx server error.
 
-### Endpoint → method → response model (all 15)
+### Endpoint → method → response model (all 17)
 
 | HTTP | Path | SDK method | Response model |
 | --- | --- | --- | --- |
@@ -44,6 +44,8 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
 | POST | `/v2/search/employee-finder` | `search.employee_finder()` | `PageNumberPage[Person]` |
 | POST | `/v2/search/people` | `search.people()` | `CursorPage[Person]` |
 | POST | `/v2/search/companies` | `search.companies()` | `CursorPage[Company]` |
+| POST | `/v2/jobs/search` | `jobs.search()` | `CursorPage[Job]` |
+| POST | `/v2/jobs/company` | `jobs.company()` | `CursorPage[Job]` |
 | POST | `/v2/enrichment/email` | `enrichment.email()` | `EmailEnrichmentResponse` |
 | POST | `/v2/enrichment/phone` | `enrichment.phone()` | `PhoneEnrichmentResponse` |
 | POST | `/v2/enrichment/email-to-person` | `enrichment.email_to_person()` | `EmailToPersonResponse` |
@@ -504,3 +506,39 @@ the history rather than re-litigating it.
   had *not yet* implemented funding filters or the distribution endpoints (its enums ended at
   `JobLevel`, `enrichment.ts` at `LinkedinToDomainResponse`), so issue #17's "JS already uses
   these names" was aspirational — these are the names JS should adopt when it catches up.
+- **2026-07-23** — Added the Job Search endpoints (now 17). **(1)** New `client.jobs` namespace
+  (its own OpenAPI tag → its own `resources/_async/jobs.py`, sync twin generated) with
+  `jobs.search()` → `POST /v2/jobs/search` and `jobs.company()` → `POST /v2/jobs/company`. Both
+  return `CursorPage[Job]` through the existing paginator, inheriting the null-cursor stop and
+  the non-advancing-cursor guard; server-side cap is 5,000 jobs/query, 50/page. `jobs.company()`
+  requires `company_linkedin_url` (keyword-only, no default) — the API 422s without it. New `Job`
+  model in `types/jobs.py` reuses the shared `Location`. **(2)** Three enums added to
+  `PROPERTY_TO_CLASS`: `seniority`→`Seniority`, `employment_type`→`EmploymentType`,
+  `work_arrangement`→`WorkArrangement`. `company.size` maps onto the **existing** `EmployeeRange`
+  class (byte-identical buckets); two properties sharing one class name collapse to a single
+  output key (regeneration is a pure append). If upstream forks them, the divergence check
+  raises and names both spec paths. `job.field` is left unmapped — free-form upstream, never an
+  enum. **(3)** **Breaking**: `PeopleLocationFilter.city` went from `list[str]` to `KeywordFilter`
+  (`{include, exclude}`), matching the live spec. No README sample or test exercised it, so
+  nothing else failed — hence the explicit call-out. **(4)** `JobCompanyFilter` cannot reuse
+  `CompanyFilter`: its `hq.country_code` is an include/exclude object (not `list[str]`), it has no
+  `continent`/`sales_region`, and `size` is include-only. `is_agency` is a plain `bool`, not
+  `bool | None`: it is a nested key in the `total=False` `JobCompanyFilter`, so the spec's
+  tri-state "both" is expressed by omitting it (and a nested `None` would anyway be stripped by
+  the recursive `to_jsonable`; `jobs.py`'s `_drop_none` only filters the top-level kwargs).
+  `blitz-api-js` carries the identical jobs surface — cross-check it for parity when changing jobs.
+- **2026-07-23** — Closed server-parity gaps found by auditing `blitz-api` (server = source of
+  truth, cross-checked against the live spec) field-by-field; applied identically in `blitz-api-js`.
+  **(1)** `KeyInfo.remaining_credits` and `max_requests_per_seconds` widened to
+  `float | Literal["unlimited"]` — the API returns the literal `"unlimited"` on unlimited plans,
+  which a number-only model **rejected** (`ValidationError`). Both use `float` to match the spec's
+  `number` (an `int` would reject a fractional rate JS accepts). **(2)** `Education.school` →
+  **`school_name`** + added `field_of_study`: the server always emits `school_name`, so the old typed
+  `school` field never populated (value survived only via `model_extra`). Shared model → every
+  Person-returning endpoint benefits. **(3)** `DomainToLinkedinResponse` gained `company_name` +
+  `other[]` (new `DomainToLinkedinMatch`). **(4)** Request-side: `PeopleFilter.linkedin_url` and a
+  `profile_min_connections` kwarg on `waterfall_icp` (both in the spec, previously unexpressible).
+  **(5)** `CascadeTier.location`/`include_headline_search` → `NotRequired` (spec requires only
+  `include_title`); `current_date`'s `region` made optional (spec default). `current_date` sends an
+  empty body when `region` omitted. Async edits regenerated to sync via `gen_sync.py`.
+  `CompanyFilter.linkedin_url` is a documented superset field (applies on `search.people` only).

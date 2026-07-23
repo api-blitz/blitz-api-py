@@ -12,6 +12,7 @@ from blitz_api.types import (
     DomainToLinkedinResponse,
     EmailEnrichmentResponse,
     EmailToPersonResponse,
+    Job,
     KeyInfo,
     LinkedinToDomainResponse,
     Person,
@@ -30,6 +31,13 @@ def test_key_info_parses() -> None:
     assert info.active_plans[0].name == "Unlimited Leads"
 
 
+def test_key_info_parses_unlimited_credits() -> None:
+    # Unlimited plans return the literal "unlimited" for the credit/rate fields.
+    info = KeyInfo.model_validate(data.KEY_INFO_UNLIMITED)
+    assert info.remaining_credits == "unlimited"
+    assert info.max_requests_per_seconds == "unlimited"
+
+
 def test_people_search_parses_nested_person() -> None:
     resp = CursorPage[Person].model_validate(data.PEOPLE_SEARCH)
     assert resp.total_results == 14337505
@@ -42,6 +50,8 @@ def test_people_search_parses_nested_person() -> None:
     assert exp.job_location is not None
     assert exp.job_location.city == "Sunnyvale"
     assert person.education[0].degree == "Bachelor's degree"
+    assert person.education[0].school_name == "Stanford University"
+    assert person.education[0].field_of_study == "Computer Science"
     assert person.certifications[0].authority == "Google"
 
 
@@ -60,6 +70,25 @@ def test_employee_finder_is_page_paginated() -> None:
     assert resp.page == 1
     assert resp.total_pages == 1285
     assert resp.results[0].first_name == "Beulah"
+
+
+def test_job_search_parses_nested_job() -> None:
+    resp = CursorPage[Job].model_validate(data.JOB_SEARCH)
+    assert resp.total_results == 4821
+    job = resp.results[0]
+    assert job.title == "Growth Marketing Manager, SMB Ads"
+    assert job.company_name == "OpenAI"
+    # The API emits a space-separated timestamp with an offset, not ISO-8601.
+    assert job.date_posted == "2026-07-08 23:00:07+02"
+    assert job.location is not None
+    assert job.location.city == "San Francisco"
+    assert job.location.country_code == "US"
+
+
+def test_company_jobs_parses() -> None:
+    resp = CursorPage[Job].model_validate(data.COMPANY_JOBS)
+    assert resp.total_results == 37
+    assert resp.results[0].company_linkedin_url == "https://www.linkedin.com/company/openai"
 
 
 def test_waterfall_icp_wraps_person_with_tier() -> None:
@@ -108,6 +137,8 @@ def test_company_enrichment_parses() -> None:
 def test_domain_to_linkedin_parses() -> None:
     resp = DomainToLinkedinResponse.model_validate(data.DOMAIN_TO_LINKEDIN)
     assert resp.company_linkedin_url == "https://www.linkedin.com/company/blitz-api"
+    assert resp.company_name == "Blitz"
+    assert resp.other[0].company_name == "Blitz Other"
 
 
 def test_linkedin_to_domain_parses() -> None:

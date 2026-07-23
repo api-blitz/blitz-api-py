@@ -56,15 +56,26 @@ FETCH_ATTEMPTS = 3
 # and therefore enums.py — is deterministic regardless of spec traversal order.
 # ``type`` only ever appears as ``company.type``; ``last_funding_type`` as
 # ``company.last_funding_type``.
+#
+# Two properties may share a class name when the spec repeats one value list under
+# different keys: ``size`` (``company.size`` on ``/v2/jobs/search``) carries the same
+# buckets as ``employee_range``, so it maps onto ``EmployeeRange`` rather than emitting a
+# duplicate. Sharing keeps the collapse behaviour honest — if upstream ever forks the two
+# lists apart, the divergence check raises and names both spec paths, which is exactly the
+# human decision point we want.
 PROPERTY_TO_CLASS: dict[str, str] = {
     "industry": "Industry",
     "type": "CompanyType",
     "employee_range": "EmployeeRange",
+    "size": "EmployeeRange",
     "continent": "Continent",
     "sales_region": "SalesRegion",
     "job_function": "JobFunction",
     "job_level": "JobLevel",
     "last_funding_type": "LastFundingType",
+    "seniority": "Seniority",
+    "employment_type": "EmploymentType",
+    "work_arrangement": "WorkArrangement",
 }
 
 # OpenAPI/JSON-Schema keywords skipped when resolving an enum's owning property.

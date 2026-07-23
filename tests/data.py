@@ -52,7 +52,13 @@ _PERSON: dict[str, Any] = {
         }
     ],
     "education": [
-        {"degree": "Bachelor's degree", "start_date": "2019-01-01", "end_date": "2023-01-01"}
+        {
+            "school_name": "Stanford University",
+            "degree": "Bachelor's degree",
+            "field_of_study": "Computer Science",
+            "start_date": "2019-01-01",
+            "end_date": "2023-01-01",
+        }
     ],
     "skills": ["python"],
     "certifications": [
@@ -109,6 +115,36 @@ EMPLOYEE_FINDER: dict[str, Any] = {
     "results": [_PERSON],
 }
 
+_JOB: dict[str, Any] = {
+    "date_posted": "2026-07-08 23:00:07+02",
+    "title": "Growth Marketing Manager, SMB Ads",
+    "url": "https://www.linkedin.com/jobs/view/growth-marketing-manager-smb-ads-at-openai-4437309737",
+    "company_name": "OpenAI",
+    "company_linkedin_url": "https://www.linkedin.com/company/openai",
+    "ai_summary": (
+        "The Growth Marketing Manager will execute growth experiments across "
+        "acquisition, activation, lifecycle, and early retention for small business "
+        "advertisers."
+    ),
+    "location": {"city": "San Francisco", "country_code": "US"},
+}
+
+JOB_SEARCH: dict[str, Any] = {
+    "total_results": 4821,
+    "results": [_JOB],
+    "results_length": 1,
+    "max_results": 1,
+    "cursor": "eyJzIjpbMTc1MjAxNzIwNzAwMF19",
+}
+
+COMPANY_JOBS: dict[str, Any] = {
+    "total_results": 37,
+    "results": [_JOB],
+    "results_length": 1,
+    "max_results": 1,
+    "cursor": "eyJzIjpbMTc1MjAxNzIwNzAwMV19",
+}
+
 WATERFALL_ICP: dict[str, Any] = {
     "company_linkedin_url": "https://www.linkedin.com/company/openai",
     "max_results": 1,
@@ -140,6 +176,23 @@ COMPANY_ENRICHMENT: dict[str, Any] = {"found": True, "company": _COMPANY}
 DOMAIN_TO_LINKEDIN: dict[str, Any] = {
     "found": True,
     "company_linkedin_url": "https://www.linkedin.com/company/blitz-api",
+    "company_name": "Blitz",
+    "other": [
+        {
+            "company_linkedin_url": "https://www.linkedin.com/company/blitz-other",
+            "company_name": "Blitz Other",
+        }
+    ],
+}
+
+# An unlimited-plan key: credit fields come back as the literal "unlimited".
+KEY_INFO_UNLIMITED: dict[str, Any] = {
+    "valid": True,
+    "id": "key_unlimited",
+    "remaining_credits": "unlimited",
+    "max_requests_per_seconds": "unlimited",
+    "allowed_apis": ["/search/people"],
+    "active_plans": [{"name": "Unlimited", "status": "active"}],
 }
 
 LINKEDIN_TO_DOMAIN: dict[str, Any] = {"found": True, "email_domain": "blitz-agency.com"}
@@ -205,4 +258,20 @@ EMPLOYEE_FINDER_PAGE2: dict[str, Any] = {
     "page": 2,
     "total_pages": 2,
     "results": [{**_PERSON, "full_name": "Employee Two"}],
+}
+
+# Cursor-based jobs: page 1 returns a cursor; page 2 returns cursor=null (last page).
+JOB_SEARCH_PAGE1: dict[str, Any] = {
+    "total_results": 2,
+    "results": [{**_JOB, "title": "Job One"}],
+    "results_length": 1,
+    "max_results": 1,
+    "cursor": "next-cursor",
+}
+JOB_SEARCH_PAGE2: dict[str, Any] = {
+    "total_results": 2,
+    "results": [{**_JOB, "title": "Job Two"}],
+    "results_length": 1,
+    "max_results": 1,
+    "cursor": None,
 }

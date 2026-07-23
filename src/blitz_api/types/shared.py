@@ -49,8 +49,9 @@ class Experience(BlitzModel):
 class Education(BlitzModel):
     """A single education entry from a person's profile."""
 
-    school: str | None = None
+    school_name: str | None = None
     degree: str | None = None
+    field_of_study: str | None = None
     start_date: str | None = None
     end_date: str | None = None
 

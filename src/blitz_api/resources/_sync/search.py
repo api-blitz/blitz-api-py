@@ -143,12 +143,20 @@ class SearchResource:
         *,
         company_linkedin_url: str,
         cascade: list[CascadeTier],
+        profile_min_connections: int | None = None,
         max_results: int | None = None,
         timeout: TimeoutParam = None,
     ) -> WaterfallIcpResponse:
-        """Find the best decision-maker at a company via a prioritized cascade."""
+        """Find the best decision-maker at a company via a prioritized cascade.
+
+        ``profile_min_connections`` sets the minimum LinkedIn connections for a match
+        (server defaults to 200 when omitted).
+        """
         body = _drop_none(
-            company_linkedin_url=company_linkedin_url, cascade=cascade, max_results=max_results
+            company_linkedin_url=company_linkedin_url,
+            cascade=cascade,
+            profile_min_connections=profile_min_connections,
+            max_results=max_results,
         )
         return self._client._request(
             "POST", _WATERFALL, body=body, cast_to=WaterfallIcpResponse, timeout=timeout

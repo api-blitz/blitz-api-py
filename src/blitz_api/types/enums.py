@@ -19,6 +19,9 @@ __all__ = [
     "JobFunction",
     "JobLevel",
     "LastFundingType",
+    "Seniority",
+    "EmploymentType",
+    "WorkArrangement",
 ]
 
 
@@ -658,3 +661,28 @@ class LastFundingType(str, Enum):
     SECONDARY_MARKET = 'Secondary market'
     INITIAL_COIN_OFFERING = 'Initial coin offering'
     POST_IPO_SECONDARY = 'Post IPO secondary'
+
+
+class Seniority(str, Enum):
+    _0_2 = '0-2'
+    _2_5 = '2-5'
+    _5_10 = '5-10'
+    _10 = '10+'
+
+
+class EmploymentType(str, Enum):
+    FULL_TIME = 'FULL_TIME'
+    PART_TIME = 'PART_TIME'
+    CONTRACTOR = 'CONTRACTOR'
+    TEMPORARY = 'TEMPORARY'
+    INTERN = 'INTERN'
+    VOLUNTEER = 'VOLUNTEER'
+    PER_DIEM = 'PER_DIEM'
+    OTHER = 'OTHER'
+
+
+class WorkArrangement(str, Enum):
+    ON_SITE = 'On-site'
+    HYBRID = 'Hybrid'
+    REMOTE_OK = 'Remote OK'
+    REMOTE_SOLELY = 'Remote Solely'

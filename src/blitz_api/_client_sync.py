@@ -19,6 +19,7 @@ from ._rate_limit import RateLimiter
 from .resources import (
     AccountResource,
     EnrichmentResource,
+    JobsResource,
     SearchResource,
     UtilsResource,
 )
@@ -156,6 +157,10 @@ class BlitzAPI(BaseClient):
     @cached_property
     def search(self) -> SearchResource:
         return SearchResource(self)
+
+    @cached_property
+    def jobs(self) -> JobsResource:
+        return JobsResource(self)
 
     @cached_property
     def enrichment(self) -> EnrichmentResource:

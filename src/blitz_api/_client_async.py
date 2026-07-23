@@ -17,6 +17,7 @@ from ._rate_limit import AsyncRateLimiter
 from .resources import (
     AsyncAccountResource,
     AsyncEnrichmentResource,
+    AsyncJobsResource,
     AsyncSearchResource,
     AsyncUtilsResource,
 )
@@ -154,6 +155,10 @@ class AsyncBlitzAPI(BaseClient):
     @cached_property
     def search(self) -> AsyncSearchResource:
         return AsyncSearchResource(self)
+
+    @cached_property
+    def jobs(self) -> AsyncJobsResource:
+        return AsyncJobsResource(self)
 
     @cached_property
     def enrichment(self) -> AsyncEnrichmentResource:

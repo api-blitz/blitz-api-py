@@ -16,11 +16,14 @@ from .enums import (
     CompanyType,
     Continent,
     EmployeeRange,
+    EmploymentType,
     Industry,
     JobFunction,
     JobLevel,
     LastFundingType,
     SalesRegion,
+    Seniority,
+    WorkArrangement,
 )
 
 # Each accepts an enum member (autocompleted) or a raw string, so callers are
@@ -36,6 +39,9 @@ ContinentValue = Continent | str
 SalesRegionValue = SalesRegion | str
 JobFunctionValue = JobFunction | str
 JobLevelValue = JobLevel | str
+SeniorityValue = Seniority | str
+EmploymentTypeValue = EmploymentType | str
+WorkArrangementValue = WorkArrangement | str
 
 
 class KeywordFilter(TypedDict, total=False):
@@ -86,6 +92,7 @@ class CompanyHQFilter(TypedDict, total=False):
 class CompanyFilter(TypedDict, total=False):
     """Company search criteria, shared by ``search.companies`` and ``search.people``."""
 
+    # Applied on ``search.people`` only; ``search.companies`` ignores it.
     linkedin_url: list[str]
     name: KeywordFilter
     industry: IndustryFilter
@@ -119,7 +126,7 @@ class PeopleJobTitleFilter(TypedDict, total=False):
 class PeopleLocationFilter(TypedDict, total=False):
     """Location filter for the people side of a people search."""
 
-    city: list[str]
+    city: KeywordFilter
     country_code: list[str]
     continent: list[ContinentValue]
     sales_region: list[SalesRegionValue]
@@ -128,6 +135,7 @@ class PeopleLocationFilter(TypedDict, total=False):
 class PeopleFilter(TypedDict, total=False):
     """People search criteria for ``search.people``."""
 
+    linkedin_url: list[str]  # Match specific people by LinkedIn URL (server caps at 50).
     job_title: PeopleJobTitleFilter
     job_function: list[JobFunctionValue]
     job_level: list[JobLevelValue]
@@ -137,9 +145,94 @@ class PeopleFilter(TypedDict, total=False):
 
 
 class CascadeTier(TypedDict):
-    """One tier of a waterfall ICP cascade, tried in order until results are found."""
+    """One tier of a waterfall ICP cascade, tried in order until results are found.
+
+    Only ``include_title`` is required; the server defaults ``location`` to worldwide
+    and ``include_headline_search`` to ``False`` when omitted.
+    """
 
     include_title: list[str]
-    location: list[str]
-    include_headline_search: bool
+    location: NotRequired[list[str]]
+    include_headline_search: NotRequired[bool]
     exclude_title: NotRequired[list[str]]
+
+
+class SeniorityFilter(TypedDict, total=False):
+    """Include/exclude filter over a job's seniority band.
+
+    These are **years-of-experience** bands on the posting (``0-2``, ``2-5``,
+    ``5-10``, ``10+``) — unrelated to the people-side ``JobLevel`` (``C-Team``, ``VP``, ...).
+    """
+
+    include: list[SeniorityValue]
+    exclude: list[SeniorityValue]
+
+
+class EmploymentTypeFilter(TypedDict, total=False):
+    """Include/exclude filter over the employment type a job offers."""
+
+    include: list[EmploymentTypeValue]
+    exclude: list[EmploymentTypeValue]
+
+
+class WorkArrangementFilter(TypedDict, total=False):
+    """Include/exclude filter over where the work is performed."""
+
+    include: list[WorkArrangementValue]
+    exclude: list[WorkArrangementValue]
+
+
+class JobLocationFilter(TypedDict, total=False):
+    """Location filter for a job posting (the job's location, not the company HQ)."""
+
+    city: KeywordFilter
+    country_code: KeywordFilter  # ISO-3166 alpha-2 codes, matched exactly.
+
+
+class DatePostedFilter(TypedDict):
+    """Recency filter restricting results to jobs posted within the last N days."""
+
+    last_days: int  # 1-3650.
+
+
+class JobFilter(TypedDict, total=False):
+    """Job-level search criteria, shared by ``jobs.search`` and ``jobs.company``."""
+
+    title: KeywordFilter
+    description: KeywordFilter
+    ai_keywords: KeywordFilter  # Broad theme search across title, description, taxonomies.
+    field: KeywordFilter  # Professional field or discipline. Free-form — any label.
+    seniority: SeniorityFilter
+    employment_type: EmploymentTypeFilter
+    work_arrangement: WorkArrangementFilter
+    location: JobLocationFilter
+    date_posted: DatePostedFilter
+
+
+class CompanySizeFilter(TypedDict, total=False):
+    """Include-only filter over the LinkedIn size buckets. The API exposes no ``exclude``."""
+
+    include: list[EmployeeRangeValue]
+
+
+class JobCompanyHQFilter(TypedDict, total=False):
+    """Headquarters-location filter for the company side of a job search."""
+
+    city: KeywordFilter
+    state: KeywordFilter
+    country_code: KeywordFilter  # ISO-3166 alpha-2 codes, matched exactly.
+
+
+class JobCompanyFilter(TypedDict, total=False):
+    """Company-level firmographic criteria for ``jobs.search``, matched against the
+    enriched company record behind each posting.
+    """
+
+    # ``True`` = only staffing/recruitment agencies, ``False`` = exclude confirmed
+    # agencies. Omit to include both.
+    is_agency: bool
+    industry: IndustryFilter
+    employee_count: RangeFilter
+    size: CompanySizeFilter
+    keywords: KeywordFilter
+    hq: JobCompanyHQFilter

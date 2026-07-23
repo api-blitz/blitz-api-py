@@ -15,12 +15,15 @@ from blitz_api.types import (
     CompanyEnrichmentResponse,
     CurrentDateResponse,
     EmailEnrichmentResponse,
+    EmploymentType,
     Industry,
     JobFunction,
     JobLevel,
     KeyInfo,
     LastFundingType,
+    Seniority,
     WaterfallIcpResponse,
+    WorkArrangement,
 )
 from tests import data
 from tests.conftest import TEST_KEY, url
@@ -74,7 +77,11 @@ def test_search_people_serializes_enums_and_drops_none(httpx_mock: HTTPXMock) ->
     httpx_mock.add_response(url=url("/v2/search/people"), method="POST", json=data.PEOPLE_SEARCH)
     result = _client().search.people(
         company={"industry": {"include": [Industry.SOFTWARE_DEVELOPMENT]}},
-        people={"job_level": [JobLevel.VP], "job_title": {"include": ["Engineer"]}},
+        people={
+            "job_level": [JobLevel.VP],
+            "job_title": {"include": ["Engineer"]},
+            "linkedin_url": ["https://www.linkedin.com/in/example"],
+        },
         max_results=5,
     )
 
@@ -82,7 +89,11 @@ def test_search_people_serializes_enums_and_drops_none(httpx_mock: HTTPXMock) ->
     body = _sent_body(httpx_mock)
     assert body == {
         "company": {"industry": {"include": ["Software Development"]}},
-        "people": {"job_level": ["VP"], "job_title": {"include": ["Engineer"]}},
+        "people": {
+            "job_level": ["VP"],
+            "job_title": {"include": ["Engineer"]},
+            "linkedin_url": ["https://www.linkedin.com/in/example"],
+        },
         "max_results": 5,
     }
     assert "cursor" not in body  # None args are omitted
@@ -142,20 +153,87 @@ def test_employee_finder_serializes_enum_lists(httpx_mock: HTTPXMock) -> None:
     }
 
 
+def test_jobs_search_serializes_job_and_company_filters(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(url=url("/v2/jobs/search"), method="POST", json=data.JOB_SEARCH)
+    result = _client().jobs.search(
+        job={
+            "title": {"include": ["Growth Marketing"]},
+            "seniority": {"include": [Seniority._2_5]},
+            "employment_type": {"include": [EmploymentType.FULL_TIME]},
+            "work_arrangement": {"exclude": [WorkArrangement.ON_SITE]},
+            "location": {"country_code": {"include": ["US"]}},
+            "date_posted": {"last_days": 30},
+        },
+        company={
+            "is_agency": False,
+            "industry": {"include": [Industry.SOFTWARE_DEVELOPMENT]},
+            "size": {"include": ["1001-5000"]},
+            "hq": {"city": {"include": ["San Francisco"]}},
+        },
+        max_results=1,
+    )
+
+    assert isinstance(result, CursorPage)
+    assert result.results[0].title == "Growth Marketing Manager, SMB Ads"
+    body = _sent_body(httpx_mock)
+    assert body == {
+        "job": {
+            "title": {"include": ["Growth Marketing"]},
+            "seniority": {"include": ["2-5"]},
+            "employment_type": {"include": ["FULL_TIME"]},
+            "work_arrangement": {"exclude": ["On-site"]},
+            "location": {"country_code": {"include": ["US"]}},
+            "date_posted": {"last_days": 30},
+        },
+        "company": {
+            "is_agency": False,
+            "industry": {"include": ["Software Development"]},
+            "size": {"include": ["1001-5000"]},
+            "hq": {"city": {"include": ["San Francisco"]}},
+        },
+        "max_results": 1,
+    }
+    assert "cursor" not in body  # None args are omitted
+
+
+def test_jobs_company_scopes_to_company_url(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(url=url("/v2/jobs/company"), method="POST", json=data.COMPANY_JOBS)
+    result = _client().jobs.company(
+        company_linkedin_url="https://www.linkedin.com/company/openai",
+        job={"field": {"include": ["Software Engineering"]}},
+        max_results=1,
+    )
+    assert isinstance(result, CursorPage)
+    assert result.results[0].company_name == "OpenAI"
+    assert _sent_body(httpx_mock) == {
+        "company_linkedin_url": "https://www.linkedin.com/company/openai",
+        "job": {"field": {"include": ["Software Engineering"]}},
+        "max_results": 1,
+    }
+
+
+async def test_async_jobs_search(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(url=url("/v2/jobs/search"), method="POST", json=data.JOB_SEARCH)
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        result = await client.jobs.search(job={"title": {"include": ["Engineer"]}})
+    assert isinstance(result, AsyncCursorPage)
+    assert result.results[0].title == "Growth Marketing Manager, SMB Ads"
+
+
 def test_waterfall_icp(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(
         url=url("/v2/search/waterfall-icp-keyword"), method="POST", json=data.WATERFALL_ICP
     )
     result = _client().search.waterfall_icp(
         company_linkedin_url="https://www.linkedin.com/company/openai",
-        cascade=[
-            {"include_title": ["CEO"], "location": ["WORLD"], "include_headline_search": False}
-        ],
+        cascade=[{"include_title": ["CEO"]}],  # location / include_headline_search optional
+        profile_min_connections=100,
         max_results=5,
     )
     assert isinstance(result, WaterfallIcpResponse)
     body = _sent_body(httpx_mock)
     assert body["cascade"][0]["include_title"] == ["CEO"]
+    assert body["profile_min_connections"] == 100
 
 
 def test_current_date(httpx_mock: HTTPXMock) -> None:
@@ -165,6 +243,15 @@ def test_current_date(httpx_mock: HTTPXMock) -> None:
     result = _client().utils.current_date(region="America/New_York")
     assert isinstance(result, CurrentDateResponse)
     assert _sent_body(httpx_mock) == {"region": "America/New_York"}
+
+
+def test_current_date_no_region(httpx_mock: HTTPXMock) -> None:
+    # region is optional; omitting it sends an empty body so the server default applies.
+    httpx_mock.add_response(
+        url=url("/v2/utils/current-date"), method="POST", json=data.CURRENT_DATE
+    )
+    _client().utils.current_date()
+    assert _sent_body(httpx_mock) == {}
 
 
 def test_company_distribution_by_country(httpx_mock: HTTPXMock) -> None:

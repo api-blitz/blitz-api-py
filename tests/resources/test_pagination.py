@@ -15,6 +15,8 @@ from tests.conftest import TEST_KEY, url
 
 _PEOPLE = url("/v2/search/people")
 _EMPLOYEE_FINDER = url("/v2/search/employee-finder")
+_JOBS_SEARCH = url("/v2/jobs/search")
+_JOBS_COMPANY = url("/v2/jobs/company")
 
 
 def _client() -> BlitzAPI:
@@ -153,6 +155,50 @@ def test_collect_honors_max_items(httpx_mock: HTTPXMock) -> None:
 
     assert [p.full_name for p in people] == ["Person One"]
     assert len(httpx_mock.get_requests()) == 1
+
+
+# --- cursor-based (jobs.search / jobs.company) -------------------------------------
+
+
+def test_jobs_search_auto_paginates_items(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(url=_JOBS_SEARCH, method="POST", json=data.JOB_SEARCH_PAGE1)
+    httpx_mock.add_response(url=_JOBS_SEARCH, method="POST", json=data.JOB_SEARCH_PAGE2)
+
+    titles = [j.title for j in _client().jobs.search(max_results=1)]
+
+    assert titles == ["Job One", "Job Two"]
+    requests = httpx_mock.get_requests()
+    assert len(requests) == 2
+    assert json.loads(requests[1].content)["cursor"] == "next-cursor"
+
+
+def test_jobs_company_re_sends_scope_url_on_every_page(httpx_mock: HTTPXMock) -> None:
+    # The scoping URL must be echoed on the follow-up page, not just the first request.
+    httpx_mock.add_response(url=_JOBS_COMPANY, method="POST", json=data.JOB_SEARCH_PAGE1)
+    httpx_mock.add_response(url=_JOBS_COMPANY, method="POST", json=data.JOB_SEARCH_PAGE2)
+
+    company_url = "https://www.linkedin.com/company/openai"
+    titles = [
+        j.title for j in _client().jobs.company(company_linkedin_url=company_url, max_results=1)
+    ]
+
+    assert titles == ["Job One", "Job Two"]
+    requests = httpx_mock.get_requests()
+    assert len(requests) == 2
+    second = json.loads(requests[1].content)
+    assert second["company_linkedin_url"] == company_url
+    assert second["cursor"] == "next-cursor"
+
+
+def test_jobs_cursor_guard_aborts_on_non_advancing_cursor(httpx_mock: HTTPXMock) -> None:
+    stuck = {**data.JOB_SEARCH_PAGE1, "cursor": "stuck"}
+    httpx_mock.add_response(url=_JOBS_SEARCH, method="POST", json=stuck)
+    httpx_mock.add_response(url=_JOBS_SEARCH, method="POST", json=stuck)
+
+    with pytest.raises(BlitzError, match="Cursor did not advance"):
+        list(_client().jobs.search(max_results=1))
+
+    assert len(httpx_mock.get_requests()) == 2
 
 
 # --- page-number-based (employee_finder) -------------------------------------------

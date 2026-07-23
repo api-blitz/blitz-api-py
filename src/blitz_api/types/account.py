@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from ._models import BlitzModel
 
 __all__ = ["ActivePlan", "KeyInfo"]
@@ -20,8 +22,9 @@ class KeyInfo(BlitzModel):
 
     valid: bool | None = None
     id: str | None = None
-    remaining_credits: float | None = None
+    # A number on metered plans; the literal "unlimited" on unlimited plans.
+    remaining_credits: float | Literal["unlimited"] | None = None
     next_reset_at: str | None = None
-    max_requests_per_seconds: int | None = None
+    max_requests_per_seconds: float | Literal["unlimited"] | None = None
     allowed_apis: list[str] = []
     active_plans: list[ActivePlan] = []

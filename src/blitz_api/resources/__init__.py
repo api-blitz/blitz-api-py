@@ -8,10 +8,12 @@ from __future__ import annotations
 
 from ._async.account import AsyncAccountResource
 from ._async.enrichment import AsyncEnrichmentResource
+from ._async.jobs import AsyncJobsResource
 from ._async.search import AsyncSearchResource
 from ._async.utils import AsyncUtilsResource
 from ._sync.account import AccountResource
 from ._sync.enrichment import EnrichmentResource
+from ._sync.jobs import JobsResource
 from ._sync.search import SearchResource
 from ._sync.utils import UtilsResource
 
@@ -20,6 +22,8 @@ __all__ = [
     "AsyncAccountResource",
     "SearchResource",
     "AsyncSearchResource",
+    "JobsResource",
+    "AsyncJobsResource",
     "EnrichmentResource",
     "AsyncEnrichmentResource",
     "UtilsResource",

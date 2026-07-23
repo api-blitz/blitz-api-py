@@ -46,7 +46,7 @@ and step-by-step playbooks). This file is just the quick rules.
   (generated). Sleep/timeout type aliases live in `_compat.py`.
 - Types: `src/blitz_api/types/` (`shared.py`, `<group>.py` responses, `filters.py`
   request TypedDicts, `enums.py` generated).
-- Pagination: `search.*` return auto-paging page objects (`CursorPage[T]`,
+- Pagination: `search.*` and `jobs.*` return auto-paging page objects (`CursorPage[T]`,
   `PageNumberPage[T]`, `Async*` twins; exported from `blitz_api`). Iteration is written in
   `_pagination_async.py` (gen_sync'd → `_pagination_sync.py`); shared state in
   `_pagination_base.py`. Edit the async source, never the sync.

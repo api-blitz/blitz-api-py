@@ -12,6 +12,7 @@ __all__ = [
     "EmailToPersonResponse",
     "PhoneToPersonResponse",
     "CompanyEnrichmentResponse",
+    "DomainToLinkedinMatch",
     "DomainToLinkedinResponse",
     "LinkedinToDomainResponse",
     "CompanyDistributionByCountryItem",
@@ -66,11 +67,21 @@ class CompanyEnrichmentResponse(BlitzModel):
     company: Company | None = None
 
 
+class DomainToLinkedinMatch(BlitzModel):
+    """An additional company LinkedIn match for a domain, beyond the primary one."""
+
+    company_linkedin_url: str | None = None
+    company_name: str | None = None
+
+
 class DomainToLinkedinResponse(BlitzModel):
     """Result of ``enrichment.domain_to_linkedin`` (domain -> company LinkedIn URL)."""
 
     found: bool | None = None
     company_linkedin_url: str | None = None
+    company_name: str | None = None
+    # Runner-up matches when a domain resolves to more than one company.
+    other: list[DomainToLinkedinMatch] = []
 
 
 class LinkedinToDomainResponse(BlitzModel):
