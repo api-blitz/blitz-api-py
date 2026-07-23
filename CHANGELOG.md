@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/api-blitz/blitz-api-py/compare/v2.0.0...v2.1.0) (2026-07-23)
+
+
+### Features
+
+* add jobs resource with search and company endpoints ([c96e67a](https://github.com/api-blitz/blitz-api-py/commit/c96e67ad9812f6f6c46b3aa095f7ba6792ec4a81))
+
 ## [2.0.0](https://github.com/api-blitz/blitz-api-py/compare/v1.0.0...v2.0.0) (2026-06-19)
 
 
