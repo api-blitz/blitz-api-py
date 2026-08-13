@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/api-blitz/blitz-api-py/compare/v2.1.0...v2.2.0) (2026-08-13)
+
+
+### Features
+
+* add company and changelog resources with new endpoints ([0dd4ae0](https://github.com/api-blitz/blitz-api-py/commit/0dd4ae0df510352c72143f00431e66b947409758))
+
 ## [2.1.0](https://github.com/api-blitz/blitz-api-py/compare/v2.0.0...v2.1.0) (2026-07-23)
 
 
