@@ -14,6 +14,7 @@ import json
 import re
 from pathlib import Path
 from types import ModuleType
+from typing import Any, cast
 
 import pytest
 
@@ -302,6 +303,45 @@ def test_warns_about_and_ignores_an_unmapped_property(
     assert "Field" not in enums
     assert len(enums) == 11
     assert "field" in capsys.readouterr().err
+
+
+def test_ignores_response_side_type_enum_so_it_never_collides_with_company_type() -> None:
+    # The live spec's changelog *response* pins `type` to breaking/feature/… — an enum whose
+    # owning property is `type`. Walking responses would map it onto CompanyType (a request
+    # enum with different values) and trip the divergence guard, breaking `--fetch`. The walk
+    # must skip the `responses` subtree, so this response-side enum is ignored losslessly.
+    g = _load_gen_enums()
+    spec = cast(dict[str, Any], _full_spec())
+    spec["paths"]["/v2/jobs/search"]["post"]["responses"] = {
+        "200": {
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "enum": [
+                                        "breaking",
+                                        "feature",
+                                        "improvement",
+                                        "fix",
+                                        "deprecation",
+                                        "announcement",
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
+    enums = g.extract_enums(spec)
+    assert enums["CompanyType"] == COMPANY_TYPE
+    assert len(enums) == 11
 
 
 def test_records_provenance_and_live_spec_version() -> None:

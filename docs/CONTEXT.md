@@ -35,7 +35,7 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
   404 key not found · 429 rate limited (official client waits 60 s then retries) ·
   5xx server error.
 
-### Endpoint → method → response model (all 17)
+### Endpoint → method → response model (all 19)
 
 | HTTP | Path | SDK method | Response model |
 | --- | --- | --- | --- |
@@ -46,6 +46,7 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
 | POST | `/v2/search/companies` | `search.companies()` | `CursorPage[Company]` |
 | POST | `/v2/jobs/search` | `jobs.search()` | `CursorPage[Job]` |
 | POST | `/v2/jobs/company` | `jobs.company()` | `CursorPage[Job]` |
+| POST | `/v2/company/tam-by-jobs` | `company.tam_by_jobs()` | `CursorPage[TamByJobsMatch]` |
 | POST | `/v2/enrichment/email` | `enrichment.email()` | `EmailEnrichmentResponse` |
 | POST | `/v2/enrichment/phone` | `enrichment.phone()` | `PhoneEnrichmentResponse` |
 | POST | `/v2/enrichment/email-to-person` | `enrichment.email_to_person()` | `EmailToPersonResponse` |
@@ -56,21 +57,16 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
 | POST | `/v2/enrichment/company-distribution-by-country` | `enrichment.company_distribution_by_country()` | `CompanyDistributionByCountryResponse` |
 | POST | `/v2/enrichment/company-distribution-by-department` | `enrichment.company_distribution_by_department()` | `CompanyDistributionByDepartmentResponse` |
 | POST | `/v2/utils/current-date` | `utils.current_date()` | `CurrentDateResponse` |
+| GET | `/changelog/` | `changelog.list()` | `list[ChangelogEntry]` |
 
 ### How to re-derive the API surface (IMPORTANT)
 
-The API spec/docs are not committed in full. They come from the **Blitz docs MCP
-server** (a Claude connector). To inspect or refresh:
+The API spec/docs are public. To inspect or refresh:
 
-- `mcp__claude_ai_Blitz__search_blitz_api_the_api_engine_for` — conceptual search.
-- `mcp__claude_ai_Blitz__query_docs_filesystem_blitz_api_the_api_engine_for` — a
-  read-only shell over the docs. The OpenAPI spec lives at
-  `/openapi/api-reference/v2.openapi.json`. Use `jq` against it, e.g.
-  `jq '.paths["/v2/search/people"].post.requestBody...' v2.openapi.json`.
-
-If the MCP is unavailable, the `.md` mirror of any docs page is at
-`https://docs.blitz-api.ai/<path>.md` and the index at
-`https://docs.blitz-api.ai/llms.txt`.
+- Fetch the OpenAPI spec from `https://api.blitz-api.ai/openapi` and use `jq`
+  against it, e.g. `jq '.paths["/v2/search/people"].post.requestBody...'`.
+- The `.md` mirror of any docs page is at `https://docs.blitz-api.ai/<path>.md`,
+  and the index is at `https://docs.blitz-api.ai/llms.txt`.
 
 ---
 
@@ -219,7 +215,7 @@ Internal decisions worth preserving:
   release-time gate blocks shipping enums stale vs prod (§9). The generator **throws**
   rather than silently shrink output if a mapped enum goes missing upstream or its
   occurrences diverge, and warns-and-ignores unmapped enums. If you need the full spec,
-  pull it from the Blitz MCP (§2).
+  fetch it from the public OpenAPI endpoint (§2).
 - **Client-side rate limiter is a per-process sliding window, applied per endpoint.** At
   most `rps` requests may begin in any rolling 1-second window (`_rate_limit.py`), matching
   the Blitz docs ("max 5 per 1000 ms") and the official reference client. A token bucket
@@ -368,7 +364,7 @@ creates a GitHub Release. The `publish` job in `release.yml` then runs `uv build
    release-time gate (§9) blocks any publish whose enums drifted from prod.
 
 ### Add a new endpoint
-1. Get its request schema + a response example from the Blitz MCP (§2).
+1. Get its request schema + a response example from the public docs / OpenAPI spec (§2).
 2. **Request types**: add/extend a `TypedDict` in `types/filters.py` if it has nested
    filters; otherwise the method takes plain keyword args.
 3. **Response model**: add a `BlitzModel` subclass in the right `types/<group>.py`,
@@ -527,8 +523,8 @@ the history rather than re-litigating it.
   tri-state "both" is expressed by omitting it (and a nested `None` would anyway be stripped by
   the recursive `to_jsonable`; `jobs.py`'s `_drop_none` only filters the top-level kwargs).
   `blitz-api-js` carries the identical jobs surface — cross-check it for parity when changing jobs.
-- **2026-07-23** — Closed server-parity gaps found by auditing `blitz-api` (server = source of
-  truth, cross-checked against the live spec) field-by-field; applied identically in `blitz-api-js`.
+- **2026-07-23** — Closed parity gaps found by auditing against the live spec (source of
+  truth) field-by-field; applied identically in `blitz-api-js`.
   **(1)** `KeyInfo.remaining_credits` and `max_requests_per_seconds` widened to
   `float | Literal["unlimited"]` — the API returns the literal `"unlimited"` on unlimited plans,
   which a number-only model **rejected** (`ValidationError`). Both use `float` to match the spec's
@@ -542,3 +538,17 @@ the history rather than re-litigating it.
   `include_title`); `current_date`'s `region` made optional (spec default). `current_date` sends an
   empty body when `region` omitted. Async edits regenerated to sync via `gen_sync.py`.
   `CompanyFilter.linkedin_url` is a documented superset field (applies on `search.people` only).
+- **2026-08-13** — Added `company.tam_by_jobs()` (`POST /v2/company/tam-by-jobs`, new
+  `client.company` namespace, cursor-paginated → `CursorPage[TamByJobsMatch]`; the streamed item
+  is a `{company, matched_jobs}` match reusing the shared `Company`, and the envelope carries **no**
+  `total_results`; `min_per_company` lives on a standalone `TamJobFilter` TypedDict so the shared
+  `JobFilter` stays clean, and `company` reuses `JobCompanyFilter`) and the public `changelog.list()`
+  (`GET /changelog/`, new `client.changelog` namespace; not paginated; returns a plain
+  `list[ChangelogEntry]`, `type` a loose `str`). Two transport changes: **(1)** the SDK's first GET
+  query params — a trailing `params` kwarg on `_request` / `build_url` (rate limiter still keyed on
+  the base path). **(2)** the changelog response is a top-level JSON array, so it is modelled as a
+  pydantic `RootModel[list[ChangelogEntry]]` (`ChangelogResponse`) and unwrapped to `.root`; this
+  widened `_base_client`'s `ResponseT` bound from `BlitzModel` to `BaseModel`. Fixed the enum
+  generator to skip the `responses` subtree — the live spec's changelog response `type` enum
+  otherwise mapped onto `CompanyType` (`PROPERTY_TO_CLASS["type"]`) and broke `--fetch`. Mirrored
+  1:1 in `blitz-api-js`.

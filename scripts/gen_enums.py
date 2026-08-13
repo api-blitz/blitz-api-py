@@ -246,6 +246,13 @@ def extract_enums(spec: object) -> dict[str, list[str]]:
                 )
 
         for key, value in obj.items():
+            # Skip the ``responses`` subtree: only request schemas define the enums we map
+            # (via ``PROPERTY_TO_CLASS``). The live spec's changelog *response* pins ``type``
+            # to breaking/feature/… — an enum whose owning property is ``type`` — which would
+            # otherwise map onto ``CompanyType`` (a request enum with different values) and
+            # trip the divergence guard, breaking ``--fetch``.
+            if key == "responses":
+                continue
             walk(value, [*path, key])
 
     walk(spec, [])

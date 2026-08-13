@@ -10,6 +10,7 @@ from pytest_httpx import HTTPXMock
 
 from blitz_api import AsyncBlitzAPI, AsyncCursorPage, BlitzAPI, CursorPage, PageNumberPage
 from blitz_api.types import (
+    ChangelogEntry,
     CompanyDistributionByCountryResponse,
     CompanyDistributionByDepartmentResponse,
     CompanyEnrichmentResponse,
@@ -218,6 +219,79 @@ async def test_async_jobs_search(httpx_mock: HTTPXMock) -> None:
         result = await client.jobs.search(job={"title": {"include": ["Engineer"]}})
     assert isinstance(result, AsyncCursorPage)
     assert result.results[0].title == "Growth Marketing Manager, SMB Ads"
+
+
+def test_company_tam_by_jobs_serializes_min_per_company(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/company/tam-by-jobs"), method="POST", json=data.TAM_BY_JOBS
+    )
+    result = _client().company.tam_by_jobs(
+        job={"title": {"include": ["Account Executive"]}, "min_per_company": 3},
+        company={"industry": {"include": [Industry.SOFTWARE_DEVELOPMENT]}},
+        max_results=10,
+    )
+
+    assert isinstance(result, CursorPage)
+    assert result.results[0].matched_jobs == 7
+    assert result.results[0].company is not None
+    assert result.results[0].company.name == "Google"
+    body = _sent_body(httpx_mock)
+    assert body == {
+        "job": {"title": {"include": ["Account Executive"]}, "min_per_company": 3},
+        "company": {"industry": {"include": ["Software Development"]}},
+        "max_results": 10,
+    }
+    assert "cursor" not in body  # None args are omitted
+
+
+async def test_async_company_tam_by_jobs(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/company/tam-by-jobs"), method="POST", json=data.TAM_BY_JOBS
+    )
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        result = await client.company.tam_by_jobs(
+            job={"title": {"include": ["Account Executive"]}, "min_per_company": 3}
+        )
+    assert isinstance(result, AsyncCursorPage)
+    assert result.results[0].matched_jobs == 7
+
+
+def test_changelog_list_public_get_with_query_params(httpx_mock: HTTPXMock) -> None:
+    # Matched by method only: the request URL carries a query string, asserted below.
+    httpx_mock.add_response(method="GET", json=data.CHANGELOG)
+    # Deliberately-invalid key: the endpoint is public, so this still succeeds.
+    client = BlitzAPI(api_key="not-a-real-key", rate_limit_rps=None)
+    entries = client.changelog.list(days=7, limit=25)
+
+    assert isinstance(entries, list)
+    assert isinstance(entries[0], ChangelogEntry)
+    assert entries[0].type == "feature"
+    assert entries[0].affected_endpoints == ["/v2/company/tam-by-jobs"]
+    request = httpx_mock.get_request()
+    assert request is not None
+    assert request.method == "GET"
+    assert request.url.params.get("days") == "7"
+    assert request.url.params.get("limit") == "25"
+
+
+def test_changelog_list_omits_absent_query_params(httpx_mock: HTTPXMock) -> None:
+    # No args: the URL is the bare trailing-slash path with no query string.
+    httpx_mock.add_response(url=url("/changelog/"), method="GET", json=data.CHANGELOG)
+    _client().changelog.list()
+    request = httpx_mock.get_request()
+    assert request is not None
+    assert request.url.query == b""
+
+
+async def test_async_changelog_list(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(method="GET", json=data.CHANGELOG)
+    async with AsyncBlitzAPI(api_key="not-a-real-key", rate_limit_rps=None) as client:
+        entries = await client.changelog.list(limit=25)
+    assert [e.type for e in entries] == ["feature", "fix"]
+    request = httpx_mock.get_request()
+    assert request is not None
+    assert request.method == "GET"
+    assert request.url.params.get("limit") == "25"
 
 
 def test_waterfall_icp(httpx_mock: HTTPXMock) -> None:

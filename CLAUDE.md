@@ -55,10 +55,8 @@ and step-by-step playbooks). This file is just the quick rules.
 
 ## Re-deriving the API (when you need spec details)
 
-The spec isn't fully committed. Use the Blitz docs MCP:
-`mcp__claude_ai_Blitz__query_docs_filesystem_blitz_api_the_api_engine_for` (the spec
-is at `/openapi/api-reference/v2.openapi.json`; query it with `jq`) and
-`mcp__claude_ai_Blitz__search_blitz_api_the_api_engine_for`. See `docs/CONTEXT.md` §2.
+The full spec is public: fetch the OpenAPI spec from
+`https://api.blitz-api.ai/openapi` and query it with `jq`. See `docs/CONTEXT.md` §2.
 
 ## Environment notes
 

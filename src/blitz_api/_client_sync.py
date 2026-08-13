@@ -18,6 +18,8 @@ from ._pagination_base import BasePage
 from ._rate_limit import RateLimiter
 from .resources import (
     AccountResource,
+    ChangelogResource,
+    CompanyResource,
     EnrichmentResource,
     JobsResource,
     SearchResource,
@@ -88,6 +90,7 @@ class BlitzAPI(BaseClient):
         *,
         body: Any | None,
         cast_to: type[ResponseT],
+        params: dict[str, Any] | None = None,
         timeout: TimeoutParam = None,
     ) -> ResponseT:
         url = self._build_url(path)
@@ -100,11 +103,11 @@ class BlitzAPI(BaseClient):
             try:
                 if timeout is None:
                     response = self._http_client.request(
-                        method, url, headers=headers, json=json_body
+                        method, url, headers=headers, json=json_body, params=params
                     )
                 else:
                     response = self._http_client.request(
-                        method, url, headers=headers, json=json_body, timeout=timeout
+                        method, url, headers=headers, json=json_body, params=params, timeout=timeout
                     )
             except httpx.TimeoutException as exc:
                 if self._should_retry_exception(exc) and attempt < self.max_retries:
@@ -163,9 +166,17 @@ class BlitzAPI(BaseClient):
         return JobsResource(self)
 
     @cached_property
+    def company(self) -> CompanyResource:
+        return CompanyResource(self)
+
+    @cached_property
     def enrichment(self) -> EnrichmentResource:
         return EnrichmentResource(self)
 
     @cached_property
     def utils(self) -> UtilsResource:
         return UtilsResource(self)
+
+    @cached_property
+    def changelog(self) -> ChangelogResource:
+        return ChangelogResource(self)

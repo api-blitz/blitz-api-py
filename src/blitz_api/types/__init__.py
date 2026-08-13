@@ -8,6 +8,8 @@ Import response models and request filters from here, e.g.::
 from __future__ import annotations
 
 from .account import ActivePlan, KeyInfo
+from .changelog import ChangelogEntry, ChangelogLink, ChangelogResponse
+from .company import TamByJobsMatch
 from .enrichment import (
     CompanyDistributionByCountryItem,
     CompanyDistributionByCountryResponse,
@@ -56,6 +58,7 @@ from .filters import (
     PeopleLocationFilter,
     RangeFilter,
     SeniorityFilter,
+    TamJobFilter,
     WorkArrangementFilter,
 )
 from .jobs import Job
@@ -118,6 +121,7 @@ __all__ = [
     "CompanySizeFilter",
     "JobCompanyHQFilter",
     "JobCompanyFilter",
+    "TamJobFilter",
     # account
     "KeyInfo",
     "ActivePlan",
@@ -126,6 +130,12 @@ __all__ = [
     "WaterfallIcpResponse",
     # jobs (paginated results return the page classes exported from `blitz_api`)
     "Job",
+    # company (paginated results return the page classes exported from `blitz_api`)
+    "TamByJobsMatch",
+    # changelog
+    "ChangelogLink",
+    "ChangelogEntry",
+    "ChangelogResponse",
     # enrichment
     "EmailMatch",
     "EmailEnrichmentResponse",

@@ -16,6 +16,8 @@ from ._pagination_base import BasePage
 from ._rate_limit import AsyncRateLimiter
 from .resources import (
     AsyncAccountResource,
+    AsyncChangelogResource,
+    AsyncCompanyResource,
     AsyncEnrichmentResource,
     AsyncJobsResource,
     AsyncSearchResource,
@@ -86,6 +88,7 @@ class AsyncBlitzAPI(BaseClient):
         *,
         body: Any | None,
         cast_to: type[ResponseT],
+        params: dict[str, Any] | None = None,
         timeout: TimeoutParam = None,
     ) -> ResponseT:
         url = self._build_url(path)
@@ -98,11 +101,11 @@ class AsyncBlitzAPI(BaseClient):
             try:
                 if timeout is None:
                     response = await self._http_client.request(
-                        method, url, headers=headers, json=json_body
+                        method, url, headers=headers, json=json_body, params=params
                     )
                 else:
                     response = await self._http_client.request(
-                        method, url, headers=headers, json=json_body, timeout=timeout
+                        method, url, headers=headers, json=json_body, params=params, timeout=timeout
                     )
             except httpx.TimeoutException as exc:
                 if self._should_retry_exception(exc) and attempt < self.max_retries:
@@ -161,9 +164,17 @@ class AsyncBlitzAPI(BaseClient):
         return AsyncJobsResource(self)
 
     @cached_property
+    def company(self) -> AsyncCompanyResource:
+        return AsyncCompanyResource(self)
+
+    @cached_property
     def enrichment(self) -> AsyncEnrichmentResource:
         return AsyncEnrichmentResource(self)
 
     @cached_property
     def utils(self) -> AsyncUtilsResource:
         return AsyncUtilsResource(self)
+
+    @cached_property
+    def changelog(self) -> AsyncChangelogResource:
+        return AsyncChangelogResource(self)

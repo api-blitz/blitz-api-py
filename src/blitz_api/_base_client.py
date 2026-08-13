@@ -16,7 +16,7 @@ from typing import Any, TypeVar, cast
 from urllib.parse import urljoin
 
 import httpx
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from . import _constants as C
 from ._exceptions import (
@@ -29,9 +29,11 @@ from ._exceptions import (
     RateLimitError,
     ServerError,
 )
-from .types._models import BlitzModel
 
-ResponseT = TypeVar("ResponseT", bound=BlitzModel)
+# Bound to ``pydantic.BaseModel`` (not ``BlitzModel``) so the request pipeline can also
+# validate a ``RootModel`` — used for ``changelog.list``'s top-level JSON array
+# (``ChangelogResponse``), which is a ``BaseModel`` but not a ``BlitzModel``.
+ResponseT = TypeVar("ResponseT", bound=BaseModel)
 
 # Status code -> exception class. Anything not listed that is still non-2xx
 # falls back to a generic APIStatusError (or ServerError for any 5xx).

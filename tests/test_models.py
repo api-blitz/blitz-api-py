@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from blitz_api import CursorPage, PageNumberPage
 from blitz_api.types import (
+    ChangelogEntry,
+    ChangelogResponse,
     Company,
     CompanyDistributionByCountryResponse,
     CompanyDistributionByDepartmentResponse,
@@ -18,6 +20,7 @@ from blitz_api.types import (
     Person,
     PhoneEnrichmentResponse,
     PhoneToPersonResponse,
+    TamByJobsMatch,
     WaterfallIcpResponse,
 )
 from tests import data
@@ -89,6 +92,54 @@ def test_company_jobs_parses() -> None:
     resp = CursorPage[Job].model_validate(data.COMPANY_JOBS)
     assert resp.total_results == 37
     assert resp.results[0].company_linkedin_url == "https://www.linkedin.com/company/openai"
+
+
+def test_tam_by_jobs_match_parses() -> None:
+    match = TamByJobsMatch.model_validate(data.TAM_BY_JOBS["results"][0])
+    assert match.matched_jobs == 7
+    assert match.company is not None
+    assert match.company.name == "Google"
+
+
+def test_tam_by_jobs_page_parses_without_total_results() -> None:
+    resp = CursorPage[TamByJobsMatch].model_validate(data.TAM_BY_JOBS)
+    assert resp.results[0].matched_jobs == 7
+    assert resp.results[0].company is not None
+    assert resp.results[0].company.name == "Google"
+    assert resp.cursor == "example_cursor_tam_p2"
+    # The TAM envelope carries no total_results (unlike the search/jobs envelopes).
+    assert resp.total_results is None
+
+
+def test_changelog_parses_as_top_level_array() -> None:
+    resp = ChangelogResponse.model_validate(data.CHANGELOG)
+    entries = resp.root
+    assert len(entries) == 2
+    assert entries[0].type == "feature"
+    assert entries[0].title == "Added the company TAM-by-jobs endpoint"
+    assert entries[0].affected_endpoints == ["/v2/company/tam-by-jobs"]
+    assert entries[0].links[0].url == "https://docs.blitz-api.ai/changelog"
+    # List fields absent on the second entry coerce to [] (always iterable),
+    # matching the TS SDK; `body` (a scalar) stays None.
+    assert entries[1].body is None
+    assert entries[1].affected_endpoints == []
+    assert entries[1].links == []
+
+
+def test_changelog_entry_coerces_null_and_absent_lists() -> None:
+    # A null body and an absent body both parse to None (the field is `str | None`).
+    assert ChangelogEntry.model_validate({"title": "x", "body": None}).body is None
+    assert ChangelogEntry.model_validate({"title": "x"}).body is None
+    # A null OR absent list coerces to [] (parity with the TS SDK's blitzList), so
+    # `for link in entry.links` never crashes on the API's `null`-for-empty-list.
+    null_lists = ChangelogEntry.model_validate(
+        {"title": "x", "links": None, "affected_endpoints": None}
+    )
+    assert null_lists.links == []
+    assert null_lists.affected_endpoints == []
+    assert ChangelogEntry.model_validate({"title": "x"}).links == []
+    # `type` stays a loose string (forward-compat), not an enum.
+    assert ChangelogEntry.model_validate({"type": "something-new"}).type == "something-new"
 
 
 def test_waterfall_icp_wraps_person_with_tier() -> None:

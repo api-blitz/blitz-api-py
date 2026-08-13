@@ -209,6 +209,29 @@ class JobFilter(TypedDict, total=False):
     date_posted: DatePostedFilter
 
 
+class TamJobFilter(TypedDict, total=False):
+    """Job criteria for ``company.tam_by_jobs`` — the same fields as ``JobFilter`` plus a
+    per-company floor.
+
+    Defined as a standalone ``TypedDict`` (this SDK's flat-``TypedDict`` convention, no
+    inheritance) so the shared ``JobFilter`` used by ``jobs.search`` / ``jobs.company`` —
+    which have no such field — never gains ``min_per_company``.
+    """
+
+    title: KeywordFilter
+    description: KeywordFilter
+    ai_keywords: KeywordFilter  # Broad theme search across title, description, taxonomies.
+    field: KeywordFilter  # Professional field or discipline. Free-form — any label.
+    seniority: SeniorityFilter
+    employment_type: EmploymentTypeFilter
+    work_arrangement: WorkArrangementFilter
+    location: JobLocationFilter
+    date_posted: DatePostedFilter
+    # Only include companies with at least this many matching job postings (integer,
+    # 0-25; ``0`` = unset). Raises the bar for what counts as a hit when building a TAM.
+    min_per_company: int
+
+
 class CompanySizeFilter(TypedDict, total=False):
     """Include-only filter over the LinkedIn size buckets. The API exposes no ``exclude``."""
 

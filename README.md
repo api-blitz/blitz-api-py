@@ -86,7 +86,7 @@ from blitz_api import AsyncBlitzAPI
 async def main() -> None:
     async with AsyncBlitzAPI() as client:
         result = await client.enrichment.company(
-            company_linkedin_url="https://www.linkedin.com/company/openai",
+            company_linkedin_url="https://www.linkedin.com/company/placeholder-co",
         )
         print(result.company.name if result.company else None)
 
@@ -162,15 +162,17 @@ always call the API from your backend.
 
 ## Endpoints
 
-All methods are grouped into five namespaces:
+All methods are grouped into seven namespaces:
 
 | Namespace | Methods |
 | --- | --- |
 | `client.account` | `key_info()` |
 | `client.search` | `people()`, `companies()`, `employee_finder()`, `waterfall_icp()` |
 | `client.jobs` | `search()`, `company()` |
+| `client.company` | `tam_by_jobs()` |
 | `client.enrichment` | `email()`, `phone()`, `email_to_person()`, `phone_to_person()`, `company()`, `domain_to_linkedin()`, `linkedin_to_domain()`, `company_distribution_by_country()`, `company_distribution_by_department()` |
 | `client.utils` | `current_date()` |
+| `client.changelog` | `list()` |
 
 Every method returns a typed Pydantic model (see `blitz_api.types`). Enum-backed
 filter fields (e.g. `Industry`, `JobLevel`, `Continent`) accept either an enum

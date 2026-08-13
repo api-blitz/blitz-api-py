@@ -95,7 +95,7 @@ PEOPLE_SEARCH: dict[str, Any] = {
     "results": [_PERSON],
     "results_length": 1,
     "max_results": 1,
-    "cursor": "eyJzIjpbNTAwXX0",
+    "cursor": "example_cursor_people_p2",
 }
 
 COMPANY_SEARCH: dict[str, Any] = {
@@ -103,7 +103,7 @@ COMPANY_SEARCH: dict[str, Any] = {
     "results": [_COMPANY],
     "results_length": 1,
     "max_results": 1,
-    "cursor": "eyJpIjoiY2E5OTcxZjU",
+    "cursor": "example_cursor_companies_p2",
 }
 
 EMPLOYEE_FINDER: dict[str, Any] = {
@@ -134,7 +134,7 @@ JOB_SEARCH: dict[str, Any] = {
     "results": [_JOB],
     "results_length": 1,
     "max_results": 1,
-    "cursor": "eyJzIjpbMTc1MjAxNzIwNzAwMF19",
+    "cursor": "example_cursor_jobs_p2",
 }
 
 COMPANY_JOBS: dict[str, Any] = {
@@ -142,7 +142,7 @@ COMPANY_JOBS: dict[str, Any] = {
     "results": [_JOB],
     "results_length": 1,
     "max_results": 1,
-    "cursor": "eyJzIjpbMTc1MjAxNzIwNzAwMV19",
+    "cursor": "example_cursor_company_jobs_p2",
 }
 
 WATERFALL_ICP: dict[str, Any] = {
@@ -223,6 +223,28 @@ DEPARTMENT_DISTRIBUTION: dict[str, Any] = {
         {"department": "Other", "count": 12, "percentage_ratio": 0.97},
     ],
 }
+
+# TAM by jobs: each match is a company plus how many of its live postings matched.
+# The envelope carries NO ``total_results`` (the spec omits it for this endpoint).
+TAM_BY_JOBS: dict[str, Any] = {
+    "results": [{"company": _COMPANY, "matched_jobs": 7}],
+    "results_length": 1,
+    "max_results": 1,
+    "cursor": "example_cursor_tam_p2",
+}
+
+# Public changelog: a top-level JSON array of entries, newest-first.
+CHANGELOG: list[dict[str, Any]] = [
+    {
+        "date": "2026-08-01",
+        "type": "feature",
+        "title": "Added the company TAM-by-jobs endpoint",
+        "body": "Build a Total Addressable Market of companies from live hiring signals.",
+        "affected_endpoints": ["/v2/company/tam-by-jobs"],
+        "links": [{"label": "Docs", "url": "https://docs.blitz-api.ai/changelog"}],
+    },
+    {"date": "2026-07-15", "type": "fix", "title": "Fixed a cursor pagination edge case"},
+]
 
 # --- Multi-page fixtures for pagination tests -------------------------------------
 
