@@ -22,7 +22,7 @@ and enrichment.
 
 > **Billing.** Blitz bills **per result**. A bare `for person in client.search.people(...)`
 > loop streams every match up to the server-side limit (people: 50k results), which can be
-> a lot of credits. Bound spend with **`max_items`** (a client-side total cap on
+> a lot of records. Bound spend with **`max_items`** (a client-side total cap on
 > `.collect()` / `.auto_paging_iter()`, never sent on the wire) — details in
 > [Pagination](#pagination).
 
@@ -34,6 +34,7 @@ and enrichment.
 - [Authentication](#authentication)
 - [Endpoints](#endpoints)
 - [Pagination](#pagination)
+- [Usage & rate limit (`fair_usage`)](#usage--rate-limit-fair_usage)
 - [Configuration](#configuration)
 - [Error handling](#error-handling)
 - [Forward compatibility](#forward-compatibility)
@@ -58,7 +59,7 @@ from blitz_api.types import Industry, JobLevel
 with BlitzAPI() as client:
     # Health-check the key before a batch job.
     info = client.account.key_info()
-    print(info.valid, info.remaining_credits, info.max_requests_per_seconds)
+    print(info.valid, info.records_remaining, info.max_requests_per_seconds)
 
     # LinkedIn profile URL -> verified work email.
     email = client.enrichment.email(
@@ -96,7 +97,7 @@ asyncio.run(main())
 ## Example: find, enrich, collect
 
 A complete flow — find people, enrich each one's verified work email, collect the
-contacts. `max_items` caps the total fetched so the run can't surprise you with credits.
+contacts. `max_items` caps the total fetched so the run can't surprise you with records.
 
 ```python
 from blitz_api import BlitzAPI
@@ -109,7 +110,7 @@ leads = client.search.people(
     company={"industry": {"include": [Industry.SOFTWARE_DEVELOPMENT]}},
     people={"job_level": [JobLevel.VP]},
     max_results=25,
-).collect(max_items=25)  # client-side total cap — bounds credit spend
+).collect(max_items=25)  # client-side total cap — bounds record spend
 
 # 2. Enrich each lead's verified work email from their LinkedIn profile URL.
 contacts: list[dict[str, str | None]] = []
@@ -186,9 +187,9 @@ fetches each subsequent page for you. `search.people`/`search.companies` and
 all behave identically here.
 
 > **`max_results` is the page size, not a total.** It's results per page, and the API
-> **bills 1 credit per result returned**. A bare `for person in client.search.people(...)`
+> **bills 1 record per result returned**. A bare `for person in client.search.people(...)`
 > loop streams *every* match up to the server-side limit (people: 50k results / 1k pages;
-> employee finder: 10k; jobs: 5k), which can be a lot of credits. Bound it with **`max_items`** on
+> employee finder: 10k; jobs: 5k), which can be a lot of records. Bound it with **`max_items`** on
 > `.collect()` / `.auto_paging_iter()` (a client-side total cap — never sent on the wire),
 > `break` out of the loop, or drive pages manually.
 
@@ -225,6 +226,37 @@ nxt = page.get_next_page()        # None once exhausted
 The page types (`CursorPage`, `PageNumberPage`, and their `Async*` variants) are
 exported from `blitz_api`.
 
+## Usage & rate limit (`fair_usage`)
+
+Every `/v2` response carries a `fair_usage` block: what the call cost, what's left on
+the plan, your rate-limit headroom, and a request id to quote to support. It's on every
+response model and on every page, so you can meter a long run without extra `key_info()`
+calls.
+
+```python
+result = client.enrichment.email(person_linkedin_url="https://www.linkedin.com/in/example")
+if result.fair_usage is not None:
+    print(result.fair_usage.records_used)        # what this call cost
+    print(result.fair_usage.records_remaining)   # a number, or "unlimited"
+    print(result.fair_usage.next_reset_at)       # None on an unlimited plan
+    print(result.fair_usage.request_id)          # quote this to support
+    if result.fair_usage.rate_limit is not None: # absent on account.key_info()
+        print(result.fair_usage.rate_limit.remaining_this_second)
+
+# Pages carry the block of the request that fetched them.
+for page in client.search.people(people={"job_level": ["VP"]}).iter_pages(max_pages=5):
+    print(page.fair_usage.records_used if page.fair_usage else None)
+```
+
+`InsufficientRecordsError` (`402`) carries it too, so you can see when the balance
+resets without a second call:
+
+```python
+except InsufficientRecordsError as err:
+    if err.fair_usage is not None:
+        print("resets at", err.fair_usage.next_reset_at)
+```
+
 ## Configuration
 
 ```python
@@ -257,15 +289,15 @@ client.search.people(people={"job_level": ["VP"]}, timeout=10.0)
 
 ```python
 from blitz_api import (
-    BlitzError, AuthenticationError, InsufficientCreditsError,
+    BlitzError, AuthenticationError, InsufficientRecordsError,
     NotFoundError, RateLimitError, APIStatusError, APIConnectionError,
     APITimeoutError, APIResponseValidationError,
 )
 
 try:
     client.enrichment.email(person_linkedin_url="...")
-except InsufficientCreditsError:
-    ...                            # 402 — out of credits
+except InsufficientRecordsError as err:
+    ...                            # 402 — out of records; err.fair_usage.next_reset_at
 except AuthenticationError:
     ...                            # 401 — bad key
 except APIStatusError as err:

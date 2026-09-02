@@ -9,7 +9,7 @@ result does.
 
 from __future__ import annotations
 
-from ._models import BlitzModel
+from ._models import BlitzModel, BlitzResponse
 from .shared import Person
 
 __all__ = [
@@ -30,7 +30,7 @@ class WaterfallIcpMatch(BlitzModel):
     person: Person | None = None
 
 
-class WaterfallIcpResponse(BlitzModel):
+class WaterfallIcpResponse(BlitzResponse):
     """Result of ``search.waterfall_icp``."""
 
     company_linkedin_url: str | None = None

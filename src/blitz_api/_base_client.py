@@ -24,7 +24,7 @@ from ._exceptions import (
     APIStatusError,
     AuthenticationError,
     BlitzError,
-    InsufficientCreditsError,
+    InsufficientRecordsError,
     NotFoundError,
     RateLimitError,
     ServerError,
@@ -39,7 +39,7 @@ ResponseT = TypeVar("ResponseT", bound=BaseModel)
 # falls back to a generic APIStatusError (or ServerError for any 5xx).
 _STATUS_EXCEPTIONS: dict[int, type[APIStatusError]] = {
     401: AuthenticationError,
-    402: InsufficientCreditsError,
+    402: InsufficientRecordsError,
     404: NotFoundError,
     429: RateLimitError,
 }

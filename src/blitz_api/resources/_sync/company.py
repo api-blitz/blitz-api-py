@@ -44,7 +44,7 @@ class CompanyResource:
 
         Cursor-paginated: auto-paginates over every ``{company, matched_jobs}`` match when
         the result is iterated; use ``.iter_pages()`` or the ``cursor=`` arg for manual
-        control. The API bills **1 credit per result returned**; bound spend with
+        control. The API bills **1 record per result returned**; bound spend with
         ``max_items`` on ``.collect()`` / ``.auto_paging_iter()``.
         """
         body = _drop_none(job=job, company=company, max_results=max_results, cursor=cursor)

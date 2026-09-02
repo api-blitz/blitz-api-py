@@ -13,11 +13,16 @@ from typing import Any
 
 from pydantic import PrivateAttr
 
-from .types._models import BlitzModel
+from .types._models import BlitzResponse
 
 
-class BasePage(BlitzModel):
-    """Common pagination context. Subclasses add the page fields + iteration."""
+class BasePage(BlitzResponse):
+    """Common pagination context. Subclasses add the page fields + iteration.
+
+    Inherits ``fair_usage`` from :class:`~blitz_api.types._models.BlitzResponse`: each
+    page carries the usage block of the request that fetched *it*, so during
+    auto-pagination ``page.fair_usage`` reflects that page, not the whole walk.
+    """
 
     # Bound by the client after a page is parsed, so the page can fetch the next one.
     _client: Any = PrivateAttr(default=None)

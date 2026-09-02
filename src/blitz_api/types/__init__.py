@@ -7,6 +7,7 @@ Import response models and request filters from here, e.g.::
 
 from __future__ import annotations
 
+from ._models import FairUsage, FairUsageRateLimit
 from .account import ActivePlan, KeyInfo
 from .changelog import ChangelogEntry, ChangelogLink, ChangelogResponse
 from .company import TamByJobsMatch
@@ -122,6 +123,9 @@ __all__ = [
     "JobCompanyHQFilter",
     "JobCompanyFilter",
     "TamJobFilter",
+    # envelope (on every response)
+    "FairUsage",
+    "FairUsageRateLimit",
     # account
     "KeyInfo",
     "ActivePlan",

@@ -45,6 +45,7 @@ def test_key_info_get(httpx_mock: HTTPXMock) -> None:
     result = _client().account.key_info()
 
     assert isinstance(result, KeyInfo)
+    assert result.records_remaining == 99.5
     request = httpx_mock.get_request()
     assert request is not None
     assert request.method == "GET"
