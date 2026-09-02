@@ -36,7 +36,7 @@ class AsyncChangelogResource:
         ``improvement`` | ``fix`` | ``deprecation`` | ``announcement``), a ``title``, and
         optional ``body``, ``affected_endpoints``, and ``links``.
 
-        This endpoint is **public** — it costs no credits and works regardless of API-key
+        This endpoint is **public** — it costs no records and works regardless of API-key
         validity (the SDK still sends the key header, which the endpoint ignores). It is
         **not paginated**: it returns a plain list filtered by the ``days`` / ``limit``
         query parameters.

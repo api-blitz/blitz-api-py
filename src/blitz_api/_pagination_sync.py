@@ -56,7 +56,7 @@ class Paginator(BasePage, Generic[ItemT]):
         """Drain every item across all pages into a list, optionally capped at ``max_items``.
 
         Convenience over a manual iteration loop; pair with ``max_items`` so an unbounded result
-        set can't exhaust memory — or credits, since the API bills per result returned.
+        set can't exhaust memory — or records, since the API bills per result returned.
         """
         items: list[ItemT] = []
         for item in self._auto_paging_items(max_items):

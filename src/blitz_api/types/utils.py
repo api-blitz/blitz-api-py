@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from ._models import BlitzModel
+from ._models import BlitzResponse
 
 __all__ = [
     "CurrentDateResponse",
 ]
 
 
-class CurrentDateResponse(BlitzModel):
+class CurrentDateResponse(BlitzResponse):
     """Result of ``utils.current_date``."""
 
     datetime: str | None = None

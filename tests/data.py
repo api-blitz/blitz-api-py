@@ -8,16 +8,32 @@ from __future__ import annotations
 
 from typing import Any
 
+# The ``fair_usage`` envelope every /v2 endpoint returns alongside its payload.
+FAIR_USAGE: dict[str, Any] = {
+    "records_used": 3,
+    "records_remaining": 9913547,
+    "next_reset_at": "2026-09-29T10:25:23.155Z",
+    "rate_limit": {"requests_per_second": 100, "remaining_this_second": 97},
+    "request_id": "019bae09-0055-7441-b2ea-16086e499219",
+}
+
+# ``key-info`` is not rate limited, so its ``fair_usage`` block carries no ``rate_limit``.
 KEY_INFO: dict[str, Any] = {
     "valid": True,
     "id": "key_abc123",
-    "remaining_credits": 99.5,
+    "records_remaining": 99.5,
     "next_reset_at": "2026-02-12T17:48:25.199Z",
     "max_requests_per_seconds": 5,
     "allowed_apis": ["/enrichment/email", "/search/people"],
     "active_plans": [
         {"name": "Unlimited Leads", "status": "active", "started_at": "2026-01-12T17:48:25.200Z"}
     ],
+    "fair_usage": {
+        "records_used": 0,
+        "records_remaining": 99.5,
+        "next_reset_at": "2026-02-12T17:48:25.199Z",
+        "request_id": "019bae09-0055-7441-b2ea-16086e499219",
+    },
 }
 
 _PERSON: dict[str, Any] = {
@@ -96,6 +112,7 @@ PEOPLE_SEARCH: dict[str, Any] = {
     "results_length": 1,
     "max_results": 1,
     "cursor": "example_cursor_people_p2",
+    "fair_usage": FAIR_USAGE,
 }
 
 COMPANY_SEARCH: dict[str, Any] = {
@@ -165,7 +182,11 @@ EMAIL_ENRICHMENT: dict[str, Any] = {
     ],
 }
 
-PHONE_ENRICHMENT: dict[str, Any] = {"found": True, "phone": "+1234567890"}
+PHONE_ENRICHMENT: dict[str, Any] = {
+    "found": True,
+    "phone": "+1234567890",
+    "fair_usage": FAIR_USAGE,
+}
 
 EMAIL_TO_PERSON: dict[str, Any] = {"found": True, "person": _PERSON}
 
@@ -185,11 +206,11 @@ DOMAIN_TO_LINKEDIN: dict[str, Any] = {
     ],
 }
 
-# An unlimited-plan key: credit fields come back as the literal "unlimited".
+# An unlimited-plan key: record/rate fields come back as the literal "unlimited".
 KEY_INFO_UNLIMITED: dict[str, Any] = {
     "valid": True,
     "id": "key_unlimited",
-    "remaining_credits": "unlimited",
+    "records_remaining": "unlimited",
     "max_requests_per_seconds": "unlimited",
     "allowed_apis": ["/search/people"],
     "active_plans": [{"name": "Unlimited", "status": "active"}],
@@ -231,6 +252,21 @@ TAM_BY_JOBS: dict[str, Any] = {
     "results_length": 1,
     "max_results": 1,
     "cursor": "example_cursor_tam_p2",
+}
+
+# A 402 body: the API attaches the usage block so the caller can see when it resets.
+INSUFFICIENT_RECORDS: dict[str, Any] = {
+    "success": False,
+    "message": (
+        "Fair Use limit reached. Upgrade your plan at app.blitz-api.ai/billing or "
+        "contact support to increase your monthly capacity."
+    ),
+    "fair_usage": {
+        "records_used": 0,
+        "records_remaining": 0,
+        "next_reset_at": "2026-09-29T10:25:23.155Z",
+        "request_id": "019bae09-0055-7441-b2ea-16086e499219",
+    },
 }
 
 # Public changelog: a top-level JSON array of entries, newest-first.

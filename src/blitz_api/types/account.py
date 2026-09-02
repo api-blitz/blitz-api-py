@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from ._models import BlitzModel
+from ._models import BlitzModel, BlitzResponse
 
 __all__ = ["ActivePlan", "KeyInfo"]
 
@@ -17,13 +17,15 @@ class ActivePlan(BlitzModel):
     started_at: str | None = None
 
 
-class KeyInfo(BlitzModel):
+class KeyInfo(BlitzResponse):
     """The result of ``client.account.key_info()`` — key health and limits."""
 
     valid: bool | None = None
     id: str | None = None
     # A number on metered plans; the literal "unlimited" on unlimited plans.
-    remaining_credits: float | Literal["unlimited"] | None = None
+    # Renamed by the API on 2026-09-01 to match ``fair_usage.records_remaining``
+    # and the ``x-records-remaining`` response header.
+    records_remaining: float | Literal["unlimited"] | None = None
     next_reset_at: str | None = None
     max_requests_per_seconds: float | Literal["unlimited"] | None = None
     allowed_apis: list[str] = []

@@ -14,7 +14,7 @@ def main() -> None:
     with BlitzAPI() as client:
         # Health-check the key before a batch job.
         info = client.account.key_info()
-        print(f"valid={info.valid} credits={info.remaining_credits}")
+        print(f"valid={info.valid} records={info.records_remaining}")
         print(f"rate limit: {info.max_requests_per_seconds} req/s")
 
         # Enrich a LinkedIn profile to a verified work email.
@@ -23,6 +23,15 @@ def main() -> None:
         )
         if email.found:
             print(f"email: {email.email}")
+
+        # Every /v2 response carries a fair_usage block: what this call cost, what's
+        # left on the plan, and the request id to quote to support.
+        if email.fair_usage is not None:
+            print(
+                f"used {email.fair_usage.records_used} record(s); "
+                f"{email.fair_usage.records_remaining} left "
+                f"(request {email.fair_usage.request_id})"
+            )
 
         # Search people across companies with typed, autocompleted filters.
         people = client.search.people(

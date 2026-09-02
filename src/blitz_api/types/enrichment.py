@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ._models import BlitzModel
+from ._models import BlitzModel, BlitzResponse
 from .shared import Company, Person
 
 __all__ = [
@@ -31,7 +31,7 @@ class EmailMatch(BlitzModel):
     email_domain: str | None = None
 
 
-class EmailEnrichmentResponse(BlitzModel):
+class EmailEnrichmentResponse(BlitzResponse):
     """Result of ``enrichment.email`` (LinkedIn URL -> verified work email)."""
 
     found: bool | None = None
@@ -39,28 +39,28 @@ class EmailEnrichmentResponse(BlitzModel):
     all_emails: list[EmailMatch] = []
 
 
-class PhoneEnrichmentResponse(BlitzModel):
+class PhoneEnrichmentResponse(BlitzResponse):
     """Result of ``enrichment.phone`` (LinkedIn URL -> phone)."""
 
     found: bool | None = None
     phone: str | None = None
 
 
-class EmailToPersonResponse(BlitzModel):
+class EmailToPersonResponse(BlitzResponse):
     """Result of ``enrichment.email_to_person`` (email -> full profile)."""
 
     found: bool | None = None
     person: Person | None = None
 
 
-class PhoneToPersonResponse(BlitzModel):
+class PhoneToPersonResponse(BlitzResponse):
     """Result of ``enrichment.phone_to_person`` (phone -> full profile)."""
 
     found: bool | None = None
     person: Person | None = None
 
 
-class CompanyEnrichmentResponse(BlitzModel):
+class CompanyEnrichmentResponse(BlitzResponse):
     """Result of ``enrichment.company`` (company LinkedIn URL -> company profile)."""
 
     found: bool | None = None
@@ -74,7 +74,7 @@ class DomainToLinkedinMatch(BlitzModel):
     company_name: str | None = None
 
 
-class DomainToLinkedinResponse(BlitzModel):
+class DomainToLinkedinResponse(BlitzResponse):
     """Result of ``enrichment.domain_to_linkedin`` (domain -> company LinkedIn URL)."""
 
     found: bool | None = None
@@ -84,7 +84,7 @@ class DomainToLinkedinResponse(BlitzModel):
     other: list[DomainToLinkedinMatch] = []
 
 
-class LinkedinToDomainResponse(BlitzModel):
+class LinkedinToDomainResponse(BlitzResponse):
     """Result of ``enrichment.linkedin_to_domain`` (company LinkedIn URL -> email domain)."""
 
     found: bool | None = None
@@ -105,7 +105,7 @@ class CompanyDistributionByCountryItem(BlitzModel):
     percentage_ratio: float | None = None
 
 
-class CompanyDistributionByCountryResponse(BlitzModel):
+class CompanyDistributionByCountryResponse(BlitzResponse):
     """Result of ``enrichment.company_distribution_by_country``.
 
     Served by ``POST /v2/enrichment/company-distribution-by-country``.
@@ -129,7 +129,7 @@ class CompanyDistributionByDepartmentItem(BlitzModel):
     percentage_ratio: float | None = None
 
 
-class CompanyDistributionByDepartmentResponse(BlitzModel):
+class CompanyDistributionByDepartmentResponse(BlitzResponse):
     """Result of ``enrichment.company_distribution_by_department``.
 
     Served by ``POST /v2/enrichment/company-distribution-by-department``.

@@ -29,16 +29,51 @@ from tests import data
 def test_key_info_parses() -> None:
     info = KeyInfo.model_validate(data.KEY_INFO)
     assert info.valid is True
+    assert info.records_remaining == 99.5
     assert info.max_requests_per_seconds == 5
     assert info.allowed_apis == ["/enrichment/email", "/search/people"]
     assert info.active_plans[0].name == "Unlimited Leads"
 
 
-def test_key_info_parses_unlimited_credits() -> None:
-    # Unlimited plans return the literal "unlimited" for the credit/rate fields.
+def test_key_info_parses_unlimited_records() -> None:
+    # Unlimited plans return the literal "unlimited" for the record/rate fields.
     info = KeyInfo.model_validate(data.KEY_INFO_UNLIMITED)
-    assert info.remaining_credits == "unlimited"
+    assert info.records_remaining == "unlimited"
     assert info.max_requests_per_seconds == "unlimited"
+
+
+def test_key_info_fair_usage_has_no_rate_limit() -> None:
+    # key-info is the one /v2 endpoint that is not rate limited, so the API omits
+    # fair_usage.rate_limit there.
+    info = KeyInfo.model_validate(data.KEY_INFO)
+    assert info.fair_usage is not None
+    assert info.fair_usage.records_used == 0
+    assert info.fair_usage.request_id == "019bae09-0055-7441-b2ea-16086e499219"
+    assert info.fair_usage.rate_limit is None
+
+
+def test_fair_usage_parses_on_a_flat_response() -> None:
+    resp = PhoneEnrichmentResponse.model_validate(data.PHONE_ENRICHMENT)
+    assert resp.fair_usage is not None
+    assert resp.fair_usage.records_used == 3
+    assert resp.fair_usage.records_remaining == 9913547
+    assert resp.fair_usage.next_reset_at == "2026-09-29T10:25:23.155Z"
+    assert resp.fair_usage.rate_limit is not None
+    assert resp.fair_usage.rate_limit.requests_per_second == 100
+    assert resp.fair_usage.rate_limit.remaining_this_second == 97
+
+
+def test_fair_usage_parses_on_a_page() -> None:
+    # Pages carry the usage block of the request that fetched them.
+    page = CursorPage[Person].model_validate(data.PEOPLE_SEARCH)
+    assert page.fair_usage is not None
+    assert page.fair_usage.records_used == 3
+
+
+def test_fair_usage_absent_is_none() -> None:
+    # Responses predating the fair_usage rollout (and the public changelog) omit it.
+    resp = CurrentDateResponse.model_validate(data.CURRENT_DATE)
+    assert resp.fair_usage is None
 
 
 def test_people_search_parses_nested_person() -> None:
