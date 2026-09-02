@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/api-blitz/blitz-api-py/compare/v2.2.0...v3.0.0) (2026-09-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* `KeyInfo.remaining_credits` is renamed to `KeyInfo.records_remaining`.
+
+### Features
+
+* records vocabulary rename + fair_usage envelope on every response ([698fd6d](https://github.com/api-blitz/blitz-api-py/commit/698fd6dc95bbe6120c55064255820898b708da42))
+
 ## [2.2.0](https://github.com/api-blitz/blitz-api-py/compare/v2.1.0...v2.2.0) (2026-08-13)
 
 
