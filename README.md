@@ -134,6 +134,7 @@ Person(
     headline="VP of Engineering at Acme",
     linkedin_url="https://www.linkedin.com/in/example-person",
     location=Location(city="San Francisco", state_code="CA", country_code="US", continent="North America"),
+    # Every position the person has held, in profile order.
     experiences=[Experience(job_title="VP of Engineering", company_name="Acme", job_is_current=True)],
     # first_name, last_name, skills, education, certifications, … also present
 )
@@ -170,8 +171,8 @@ All methods are grouped into seven namespaces:
 | `client.account` | `key_info()` |
 | `client.search` | `people()`, `companies()`, `employee_finder()`, `waterfall_icp()` |
 | `client.jobs` | `search()`, `company()` |
-| `client.company` | `tam_by_jobs()` |
-| `client.enrichment` | `email()`, `phone()`, `email_to_person()`, `phone_to_person()`, `company()`, `domain_to_linkedin()`, `linkedin_to_domain()`, `company_distribution_by_country()`, `company_distribution_by_department()` |
+| `client.company` | `tam_by_jobs()`, `tam_by_people()` |
+| `client.enrichment` | `person()`, `email()`, `phone()`, `email_to_person()`, `phone_to_person()`, `company()`, `domain_to_linkedin()`, `linkedin_to_domain()`, `company_distribution_by_country()`, `company_distribution_by_department()` |
 | `client.utils` | `current_date()` |
 | `client.changelog` | `list()` |
 
@@ -181,10 +182,10 @@ member or a raw string.
 
 ## Pagination
 
-The search and jobs methods return an **auto-paginating page**: iterate it and the SDK
-fetches each subsequent page for you. `search.people`/`search.companies` and
-`jobs.search`/`jobs.company` are cursor-based; `search.employee_finder` is page-based —
-all behave identically here.
+The search, jobs and TAM methods return an **auto-paginating page**: iterate it and the
+SDK fetches each subsequent page for you. `search.people`/`search.companies`,
+`jobs.search`/`jobs.company` and `company.tam_by_jobs`/`company.tam_by_people` are
+cursor-based; `search.employee_finder` is page-based — all behave identically here.
 
 > **`max_results` is the page size, not a total.** It's results per page, and the API
 > **bills 1 record per result returned**. A bare `for person in client.search.people(...)`
@@ -216,6 +217,13 @@ for job in client.jobs.search(
     company={"industry": {"include": ["Software Development"]}, "size": {"include": ["51-200"]}},
 ).auto_paging_iter(max_items=200):
     print(job.company_name, job.title, job.location.city if job.location else None)
+
+# The TAM builders page the same way — distinct companies, each with its match count.
+for match in client.company.tam_by_people(
+    company={"industry": {"include": ["Software Development"]}},
+    people={"job_level": ["VP"], "min_per_company": 3},
+).auto_paging_iter(max_items=200):
+    print(match.company.name if match.company else None, match.matched_people)
 
 # Or page manually.
 page = client.search.people(people={...}, max_results=50)

@@ -5,7 +5,9 @@ objects accepted by ``search.people`` and ``search.companies``. Enum-constrained
 fields accept either an enum member (autocompleted, e.g. ``Industry.BANKING``) or
 a raw string, so power users are never blocked.
 
-All keys are optional unless noted; omit a filter to leave it unset.
+All keys are optional unless noted; omit a filter to leave it unset. The search
+endpoints cap every filter list at **50 entries** — a longer list is rejected with a
+``422``, so split a bigger inclusion/exclusion set across several requests.
 """
 
 from __future__ import annotations
@@ -92,7 +94,8 @@ class CompanyHQFilter(TypedDict, total=False):
 class CompanyFilter(TypedDict, total=False):
     """Company search criteria, shared by ``search.companies`` and ``search.people``."""
 
-    # Applied on ``search.people`` only; ``search.companies`` ignores it.
+    # Applied on ``search.people`` / ``company.tam_by_people`` only;
+    # ``search.companies`` ignores it.
     linkedin_url: list[str]
     name: KeywordFilter
     industry: IndustryFilter
@@ -133,9 +136,15 @@ class PeopleLocationFilter(TypedDict, total=False):
 
 
 class PeopleFilter(TypedDict, total=False):
-    """People search criteria for ``search.people``."""
+    """People search criteria for ``search.people``.
 
-    linkedin_url: list[str]  # Match specific people by LinkedIn URL (server caps at 50).
+    ``linkedin_url`` is deliberately absent: ``/v2/search/people`` stopped honouring it
+    on 2026-09-11 (the request still succeeds, but the filter is *ignored*, so you get
+    results for your other criteria instead of the people you asked for). Match specific
+    people by LinkedIn URL with ``company.tam_by_people`` (:class:`TamPeopleFilter`),
+    which still accepts it.
+    """
+
     job_title: PeopleJobTitleFilter
     job_function: list[JobFunctionValue]
     job_level: list[JobLevelValue]
@@ -148,7 +157,8 @@ class CascadeTier(TypedDict):
     """One tier of a waterfall ICP cascade, tried in order until results are found.
 
     Only ``include_title`` is required; the server defaults ``location`` to worldwide
-    and ``include_headline_search`` to ``False`` when omitted.
+    and ``include_headline_search`` to ``False`` when omitted. The ``cascade`` list is
+    capped at **10 tiers**, and each tier at 50 title phrases.
     """
 
     include_title: list[str]
@@ -229,6 +239,31 @@ class TamJobFilter(TypedDict, total=False):
     date_posted: DatePostedFilter
     # Only include companies with at least this many matching job postings (integer,
     # 0-25; ``0`` = unset). Raises the bar for what counts as a hit when building a TAM.
+    min_per_company: int
+
+
+class TamPeopleFilter(TypedDict, total=False):
+    """People criteria for ``company.tam_by_people`` — the same fields as
+    :class:`PeopleFilter`, plus ``linkedin_url`` and a per-company floor.
+
+    Defined as a standalone ``TypedDict`` (this SDK's flat-``TypedDict`` convention, no
+    inheritance) for the same reason as :class:`TamJobFilter`: ``search.people`` has
+    neither ``min_per_company`` nor a working ``linkedin_url``, so its ``PeopleFilter``
+    must not gain them.
+    """
+
+    # Match specific people by LinkedIn URL. Still honoured here (unlike on
+    # ``search.people``). Capped at 50 entries like every other filter list.
+    linkedin_url: list[str]
+    job_title: PeopleJobTitleFilter
+    job_function: list[JobFunctionValue]
+    job_level: list[JobLevelValue]
+    min_connections: int
+    location: PeopleLocationFilter
+    education: KeywordFilter
+    # Only return companies with at least this many matching current employees (integer,
+    # 0-25; ``0`` = unset). When it filters heavily a page may come back partial — keep
+    # paging until ``cursor`` is ``None``.
     min_per_company: int
 
 

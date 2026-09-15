@@ -8,7 +8,9 @@ modeled as ``Optional`` on a single superset type rather than duplicated.
 
 from __future__ import annotations
 
-from ._models import BlitzModel
+from pydantic import field_validator
+
+from ._models import BlitzModel, null_list_to_empty
 
 __all__ = [
     "Location",
@@ -17,6 +19,7 @@ __all__ = [
     "Certification",
     "Person",
     "HQ",
+    "EmployeeGrowth",
     "Company",
 ]
 
@@ -28,30 +31,42 @@ class Location(BlitzModel):
     state_code: str | None = None
     country_code: str | None = None
     continent: str | None = None
+    # Populated on a person's ``location``; absent from ``Experience.job_location``.
+    postal_code: str | None = None
+    street_address: str | None = None
 
 
 class Experience(BlitzModel):
     """A single role from a person's work history."""
 
     job_title: str | None = None
-    # Populated by ``search.people``; absent from employee-finder / reverse lookups.
+    # Prefers the name on the linked LinkedIn company page when there is one.
     company_name: str | None = None
     company_linkedin_url: str | None = None
     company_linkedin_id: str | None = None
+    # Filled on past positions as well as the current one.
     company_domain: str | None = None
     job_description: str | None = None
     job_start_date: str | None = None
     job_end_date: str | None = None
     job_is_current: bool | None = None
+    #: How the role is contracted, e.g. ``"Full-time"``, ``"Contract"``, ``"Internship"``.
+    job_contract_type: str | None = None
+    #: Where the work is performed, e.g. ``"Remote"``, ``"Hybrid"``, ``"On-site"``.
+    job_work_arrangement: str | None = None
     job_location: Location | None = None
 
 
 class Education(BlitzModel):
-    """A single education entry from a person's profile."""
+    """A single education entry from a person's profile.
+
+    The field of study is part of ``degree`` (e.g. ``"Bachelor of Science, Industrial
+    Engineering"``); the API removed the separate ``field_of_study`` field on
+    2026-09-15.
+    """
 
     school_name: str | None = None
     degree: str | None = None
-    field_of_study: str | None = None
     start_date: str | None = None
     end_date: str | None = None
 
@@ -65,23 +80,32 @@ class Certification(BlitzModel):
 
 
 class Person(BlitzModel):
-    """A person profile returned by search and reverse-enrichment endpoints."""
+    """A person profile returned by search and enrichment endpoints."""
 
     first_name: str | None = None
     last_name: str | None = None
     full_name: str | None = None
     nickname: str | None = None
     civility_title: str | None = None
+    #: Built from the person's first position as ``"<job title> | @<employer>"``, not
+    #: the free-text headline written on the LinkedIn profile.
     headline: str | None = None
     about_me: str | None = None
     location: Location | None = None
     linkedin_url: str | None = None
     connections_count: int | None = None
+    #: Always ``None`` since 2026-09-15; the API keeps the key so clients don't break.
     profile_picture_url: str | None = None
+    #: Every position the person has held, in profile order.
     experiences: list[Experience] = []
     education: list[Education] = []
     skills: list[str] = []
     certifications: list[Certification] = []
+
+    # The spec types these as ``array | null``; coerce so they are always iterable.
+    _empty_lists = field_validator(
+        "experiences", "education", "skills", "certifications", mode="before"
+    )(null_list_to_empty)
 
 
 class HQ(BlitzModel):
@@ -101,6 +125,13 @@ class HQ(BlitzModel):
     street: str | None = None
 
 
+class EmployeeGrowth(BlitzModel):
+    """Headcount growth over one window, e.g. ``{percentage: 12.5, timespan: "1 year"}``."""
+
+    percentage: float | None = None
+    timespan: str | None = None
+
+
 class Company(BlitzModel):
     """A company profile returned by company search and company enrichment."""
 
@@ -118,3 +149,11 @@ class Company(BlitzModel):
     hq: HQ | None = None
     domain: str | None = None
     website: str | None = None
+    #: The company's tagline, as shown on its LinkedIn page.
+    slogan: str | None = None
+    #: Estimated annual revenue in USD.
+    revenue: float | None = None
+    #: Headcount growth, one entry per reported window.
+    employee_growth: list[EmployeeGrowth] = []
+
+    _empty_growth = field_validator("employee_growth", mode="before")(null_list_to_empty)

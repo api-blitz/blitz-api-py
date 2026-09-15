@@ -6,6 +6,7 @@ from ._models import BlitzModel, BlitzResponse
 from .shared import Company, Person
 
 __all__ = [
+    "PersonEnrichmentResponse",
     "EmailMatch",
     "EmailEnrichmentResponse",
     "PhoneEnrichmentResponse",
@@ -20,6 +21,17 @@ __all__ = [
     "CompanyDistributionByDepartmentItem",
     "CompanyDistributionByDepartmentResponse",
 ]
+
+
+class PersonEnrichmentResponse(BlitzResponse):
+    """Result of ``enrichment.person`` (LinkedIn profile URL -> full profile).
+
+    ``person`` carries the profile's whole career in ``experiences`` (every position
+    held, in profile order), plus education, skills and certifications.
+    """
+
+    found: bool | None = None
+    person: Person | None = None
 
 
 class EmailMatch(BlitzModel):

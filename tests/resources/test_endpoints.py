@@ -22,6 +22,7 @@ from blitz_api.types import (
     JobLevel,
     KeyInfo,
     LastFundingType,
+    PersonEnrichmentResponse,
     Seniority,
     WaterfallIcpResponse,
     WorkArrangement,
@@ -50,6 +51,34 @@ def test_key_info_get(httpx_mock: HTTPXMock) -> None:
     assert request is not None
     assert request.method == "GET"
     assert request.headers["x-api-key"] == TEST_KEY
+
+
+def test_enrichment_person_post_body(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/enrichment/person"), method="POST", json=data.PERSON_ENRICHMENT
+    )
+    result = _client().enrichment.person(person_linkedin_url="https://www.linkedin.com/in/example")
+
+    assert isinstance(result, PersonEnrichmentResponse)
+    assert result.found is True
+    assert result.person is not None
+    assert result.person.full_name == "Beulah Lee"
+    # The whole career, not just the current position.
+    assert len(result.person.experiences) == 2
+    assert _sent_body(httpx_mock) == {"person_linkedin_url": "https://www.linkedin.com/in/example"}
+
+
+async def test_async_enrichment_person(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/enrichment/person"), method="POST", json=data.PERSON_ENRICHMENT
+    )
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        result = await client.enrichment.person(
+            person_linkedin_url="https://www.linkedin.com/in/example"
+        )
+    assert isinstance(result, PersonEnrichmentResponse)
+    assert result.person is not None
+    assert result.person.full_name == "Beulah Lee"
 
 
 def test_enrichment_email_post_body(httpx_mock: HTTPXMock) -> None:
@@ -82,7 +111,7 @@ def test_search_people_serializes_enums_and_drops_none(httpx_mock: HTTPXMock) ->
         people={
             "job_level": [JobLevel.VP],
             "job_title": {"include": ["Engineer"]},
-            "linkedin_url": ["https://www.linkedin.com/in/example"],
+            "min_connections": 200,
         },
         max_results=5,
     )
@@ -94,7 +123,7 @@ def test_search_people_serializes_enums_and_drops_none(httpx_mock: HTTPXMock) ->
         "people": {
             "job_level": ["VP"],
             "job_title": {"include": ["Engineer"]},
-            "linkedin_url": ["https://www.linkedin.com/in/example"],
+            "min_connections": 200,
         },
         "max_results": 5,
     }
@@ -255,6 +284,49 @@ async def test_async_company_tam_by_jobs(httpx_mock: HTTPXMock) -> None:
         )
     assert isinstance(result, AsyncCursorPage)
     assert result.results[0].matched_jobs == 7
+
+
+def test_company_tam_by_people_serializes_min_per_company(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/company/tam-by-people"), method="POST", json=data.TAM_BY_PEOPLE
+    )
+    result = _client().company.tam_by_people(
+        company={"industry": {"include": [Industry.SOFTWARE_DEVELOPMENT]}},
+        people={
+            "job_level": [JobLevel.VP],
+            "job_function": [JobFunction.SALES_BUSINESS_DEVELOPMENT],
+            "linkedin_url": ["https://www.linkedin.com/in/example"],
+            "min_per_company": 5,
+        },
+        max_results=10,
+    )
+
+    assert isinstance(result, CursorPage)
+    assert result.results[0].matched_people == 27
+    assert result.results[0].company is not None
+    assert result.results[0].company.name == "Google"
+    body = _sent_body(httpx_mock)
+    assert body == {
+        "company": {"industry": {"include": ["Software Development"]}},
+        "people": {
+            "job_level": ["VP"],
+            "job_function": ["Sales & Business Development"],
+            "linkedin_url": ["https://www.linkedin.com/in/example"],
+            "min_per_company": 5,
+        },
+        "max_results": 10,
+    }
+    assert "cursor" not in body  # None args are omitted
+
+
+async def test_async_company_tam_by_people(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/company/tam-by-people"), method="POST", json=data.TAM_BY_PEOPLE
+    )
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        result = await client.company.tam_by_people(people={"min_per_company": 5})
+    assert isinstance(result, AsyncCursorPage)
+    assert result.results[0].matched_people == 27
 
 
 def test_changelog_list_public_get_with_query_params(httpx_mock: HTTPXMock) -> None:

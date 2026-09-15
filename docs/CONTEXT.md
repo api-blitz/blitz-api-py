@@ -35,7 +35,7 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
   404 key not found · 429 rate limited (official client waits 60 s then retries) ·
   5xx server error.
 
-### Endpoint → method → response model (all 19)
+### Endpoint → method → response model (all 21)
 
 | HTTP | Path | SDK method | Response model |
 | --- | --- | --- | --- |
@@ -47,6 +47,8 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
 | POST | `/v2/jobs/search` | `jobs.search()` | `CursorPage[Job]` |
 | POST | `/v2/jobs/company` | `jobs.company()` | `CursorPage[Job]` |
 | POST | `/v2/company/tam-by-jobs` | `company.tam_by_jobs()` | `CursorPage[TamByJobsMatch]` |
+| POST | `/v2/company/tam-by-people` | `company.tam_by_people()` | `CursorPage[TamByPeopleMatch]` |
+| POST | `/v2/enrichment/person` | `enrichment.person()` | `PersonEnrichmentResponse` |
 | POST | `/v2/enrichment/email` | `enrichment.email()` | `EmailEnrichmentResponse` |
 | POST | `/v2/enrichment/phone` | `enrichment.phone()` | `PhoneEnrichmentResponse` |
 | POST | `/v2/enrichment/email-to-person` | `enrichment.email_to_person()` | `EmailToPersonResponse` |
@@ -128,20 +130,22 @@ src/blitz_api/
   types/
     _models.py       BlitzModel (base for all responses, extra="allow", see §5) +
                      BlitzResponse (adds the fair_usage envelope; base for top-level
-                     responses and BasePage) + FairUsage / FairUsageRateLimit.
-    shared.py        Person, Experience, Education, Certification, Location, HQ, Company.
+                     responses and BasePage) + FairUsage / FairUsageRateLimit +
+                     null_list_to_empty (shared null->[] before-validator, see §5).
+    shared.py        Person, Experience, Education, Certification, Location, HQ,
+                     EmployeeGrowth, Company.
     enums.py         GENERATED. Industry (534) + CompanyType/EmployeeRange/Continent/
                      SalesRegion/JobFunction/JobLevel/LastFundingType. Never hand-edit (see §7).
     filters.py       Request TypedDicts (CompanyFilter, PeopleFilter, CascadeTier,
-                     TamJobFilter, ...)
+                     TamJobFilter, TamPeopleFilter, ...)
                      and *Value type aliases (e.g. IndustryValue = Industry | str).
     account.py       KeyInfo, ActivePlan
     search.py        WaterfallIcpResponse, WaterfallIcpMatch (the paginated search results
                      return the page classes below, not per-endpoint models)
-    enrichment.py    7 enrichment response models + EmailMatch + the two company-distribution
+    enrichment.py    8 enrichment response models + EmailMatch + the two company-distribution
                      responses (CompanyDistributionByCountryResponse / *ByDepartment*) + per-item models
-    company.py       TamByJobsMatch (tam_by_jobs is paginated, so it returns the page
-                     class below, not a per-endpoint model)
+    company.py       TamByJobsMatch / TamByPeopleMatch (both TAM builders are paginated,
+                     so they return the page class below, not a per-endpoint model)
     utils.py         CurrentDateResponse
     __init__.py      Re-exports the public type surface (grouped).
   _pagination_base.py   BasePage — shared pagination state/context + _bind (no async).
@@ -210,14 +214,23 @@ Internal decisions worth preserving:
   also attached to `402` bodies, so `APIStatusError.fair_usage` parses it there
   (`_parse_fair_usage` never raises — a malformed block yields `None` rather than masking
   the API's own error).
+- **`null` list fields are coerced to `[]` by a shared before-validator.** The spec types
+  a person's `education`/`skills`/`certifications`/`experiences`, a company's
+  `employee_growth`, and a changelog entry's `affected_endpoints`/`links` as
+  `array | null`, and the API really does send `null` for an empty list. A bare
+  `list[T] = []` field **rejects** `null` (`ValidationError`), so `_models.null_list_to_empty`
+  is registered as a `mode="before"` `field_validator` on each of them — the fields are then
+  always iterable, matching the TS SDK's `blitzList`. One shared function rather than a
+  per-model copy (it started life private to `changelog.py`).
 - **Superset models with nullable fields, not per-endpoint duplicates.** The API
   returns slightly different shapes for the "same" object across endpoints. We model
   one `Person`/`Company`/`Experience`/etc. with the union of fields, all `Optional`.
   Examples: `Experience.company_name` is populated only by `search.people`;
   `HQ.postcode`/`street` only by `enrichment.company`. Absence is honestly `None`.
 - **Pagination uses auto-paging page objects** (see §11 decision log). Cursor-based
-  endpoints (`people`/`companies`) return `CursorPage[Person|Company]`; the page-based
-  `employee_finder` returns `PageNumberPage[Person]` (`Async*` twins for the async client).
+  endpoints (`people`/`companies`, `jobs.*`, both TAM builders) return `CursorPage[T]`; the
+  page-based `employee_finder` returns `PageNumberPage[Person]` (`Async*` twins for the
+  async client).
   Iterating a page transparently fetches the next one; `.auto_paging_iter(max_items=)`,
   `.iter_pages(max_pages=)`, and `.get_next_page()` give bounded / per-page / manual control.
   `waterfall_icp` is not paginated — it returns `WaterfallIcpResponse` wrapping
@@ -325,9 +338,20 @@ compatibility and scheduled for removal in 3.0.0.
 - **`waterfall_icp` response shape came from the docs**, not the spec (its OpenAPI
   example is `null`). Shape: `{results: [{icp, ranking, person}]}`.
 - **`Company.linkedin_id` is an int**; `Person`/`Experience` linkedin ids are strings.
-- **`Location`** is reused for `Person.location` (has `continent`) and
-  `Experience.job_location` (no `continent`); both fields are optional so one model
-  serves both.
+- **`Location`** is reused for `Person.location` (has `continent`, `postal_code` and
+  `street_address`) and `Experience.job_location` (none of the three); every field is
+  optional so one model serves both.
+- **`Person.profile_picture_url` is always `null`** since 2026-09-15. The API kept the key
+  so clients don't break, so the field stays on the model (typed, documented) rather than
+  being removed — removing it would turn a silent `None` into an `AttributeError` for no gain.
+- **`Education` has no `field_of_study`.** The API folded it into `degree` on 2026-09-15
+  (`"Bachelor of Science, Industrial Engineering"`). Removed outright, no alias — the
+  spec-faithful precedent; `extra="allow"` keeps any stray value reachable.
+- **`Person.headline` is derived**, not the profile's free-text headline: the API builds it
+  from the first position as `"<job title> | @<employer>"`.
+- **Search filter lists are capped at 50 entries** server-side (422 past that), and
+  `waterfall_icp`'s `cascade` at 10 tiers. Documented in `filters.py`, not enforced — the
+  SDK doesn't pre-validate list lengths (same posture as the advisory enum typing).
 
 ---
 
@@ -341,7 +365,7 @@ uv sync                              # install runtime + dev deps
 uv run ruff check . && uv run ruff format .
 uv run mypy                          # strict; includes src, tests, scripts, examples
 uv run pyright                       # strict
-uv run pytest                        # 174 tests, sync + async
+uv run pytest                        # 184 tests, sync + async
 uv run python scripts/gen_enums.py --check   # enum drift guard
 uv run python scripts/gen_sync.py --check    # sync-client/resources drift guard
 uv build                             # sdist + wheel (wheel includes py.typed)
@@ -440,9 +464,9 @@ the very first `0.1.0`, see the first-release note in `CONTRIBUTING.md`.
   rely on the 429 retry path (see §5).
 - The full OpenAPI spec is not vendored (only the de-duplicated enum value lists, cached
   from the live spec by `gen_enums.py --fetch`) — see §5.
-- Response models are validated only against the spec's *examples*, not a formal
-  response schema (the API doesn't publish one). Watch for shape changes; `extra="allow"`
-  is the safety net.
+- Response models are hand-written, not generated. The spec now *does* publish response
+  `properties`, so it is a usable audit source (see the §10 playbook) — but nothing enforces
+  the two stay in sync per-PR. Watch for shape changes; `extra="allow"` is the safety net.
 
 ---
 
@@ -621,3 +645,35 @@ the history rather than re-litigating it.
   the compat test, and `Industry.CREDIT_INTERMEDIATION` (`"Credit Intermediation"`) — a LinkedIn
   taxonomy value from the spec, not billing terminology, in a generated file. Not yet mirrored in
   `blitz-api-js`, which still exports only the old `402` class name.
+- **2026-09-15** — Synced the live spec + `GET /changelog/` (2026-09-11 and 2026-09-15
+  releases). **Two new endpoints (19 → 21).** `enrichment.person()`
+  (`POST /v2/enrichment/person`) takes a `person_linkedin_url` and returns the whole career
+  — new `PersonEnrichmentResponse`, reusing the shared `Person`. `company.tam_by_people()`
+  (`POST /v2/company/tam-by-people`) is the headcount twin of `tam_by_jobs`: same
+  `CompanyFilter` firmographics plus a persona, returning the distinct employing companies
+  cursor-paginated as `CursorPage[TamByPeopleMatch]` (`{company, matched_people}`, and like
+  TAM-by-jobs **no** `total_results`). Its people criteria live in a standalone
+  `TamPeopleFilter` (the flat-`TypedDict` convention, mirroring `TamJobFilter`) because they
+  are *not* `PeopleFilter`: this endpoint has `min_per_company` **and** still honours
+  `linkedin_url`. **Breaking response changes.** (1) `Education.field_of_study` **removed** —
+  the API folded it into `degree`; hard removal, no alias, matching the v2.0.0
+  `remaining_credits` precedent (and `extra="allow"` keeps any stray value reachable).
+  (2) `PeopleFilter.linkedin_url` **removed** — `/v2/search/people` stopped honouring it on
+  2026-09-11 and now *silently ignores* it, which is worse than a 422: you get results for
+  your other criteria and never notice. Dropping the key makes the type checker say so, and
+  the docstring points at `tam_by_people` as the endpoint that still accepts it.
+  **Additive response fields**: `Location.postal_code`/`street_address`,
+  `Experience.job_contract_type`/`job_work_arrangement`, `Company.slogan`/`revenue`/
+  `employee_growth` (new `EmployeeGrowth` item model). `Person.profile_picture_url` is kept
+  though the API now always sends `null` — the key is still in the spec, and removing it
+  would turn a silent `None` into an `AttributeError` for nothing. **Robustness:**
+  `changelog.py`'s private `null → []` validator was promoted to
+  `_models.null_list_to_empty` and applied to `Person.experiences/education/skills/
+  certifications` and `Company.employee_growth`, all of which the spec types `array | null`
+  — a bare `list[T] = []` field *rejected* `null`, so this was a latent `ValidationError` on
+  a sparse profile. No SDK change needed for the rest of the release: the 50-entry filter-list
+  cap and the 10-tier cascade cap are documented in `filters.py` but not pre-validated
+  (advisory, like the enum typing); `null`-means-omitted on request bodies is already how
+  `to_jsonable`/`_drop_none` behave; and unlimited `records_remaining` landed in 3.0.0. Enums
+  re-fetched — no taxonomy drift (spec `info.version` still 1.0.0). Mirror all of this in
+  `blitz-api-js`.

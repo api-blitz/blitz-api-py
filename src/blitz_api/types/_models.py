@@ -8,7 +8,7 @@ pagination page classes) carry it — nested entities like ``Person`` do not.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -72,3 +72,15 @@ class BlitzResponse(BlitzModel):
     """
 
     fair_usage: FairUsage | None = None
+
+
+def null_list_to_empty(value: Any) -> Any:
+    """Coerce a ``null`` list field to ``[]``.
+
+    Several list-valued response fields are ``array | null`` in the spec (a person's
+    ``education`` / ``skills`` / ``certifications``, a company's ``employee_growth``, a
+    changelog entry's ``affected_endpoints`` / ``links``). Used as a ``mode="before"``
+    validator so those fields are always iterable instead of raising on ``null`` —
+    matching the TS SDK's ``blitzList``.
+    """
+    return [] if value is None else value

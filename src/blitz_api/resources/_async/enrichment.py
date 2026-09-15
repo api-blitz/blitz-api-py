@@ -13,6 +13,7 @@ from ...types.enrichment import (
     EmailEnrichmentResponse,
     EmailToPersonResponse,
     LinkedinToDomainResponse,
+    PersonEnrichmentResponse,
     PhoneEnrichmentResponse,
     PhoneToPersonResponse,
 )
@@ -20,6 +21,7 @@ from ...types.enrichment import (
 if TYPE_CHECKING:
     from ..._client import AsyncBlitzAPI
 
+_PERSON = "/v2/enrichment/person"
 _EMAIL = "/v2/enrichment/email"
 _PHONE = "/v2/enrichment/phone"
 _EMAIL_TO_PERSON = "/v2/enrichment/email-to-person"
@@ -34,6 +36,23 @@ _DISTRIBUTION_BY_DEPARTMENT = "/v2/enrichment/company-distribution-by-department
 class AsyncEnrichmentResource:
     def __init__(self, client: AsyncBlitzAPI) -> None:
         self._client = client
+
+    async def person(
+        self, *, person_linkedin_url: str, timeout: TimeoutParam = None
+    ) -> PersonEnrichmentResponse:
+        """Enrich a person from their LinkedIn profile URL.
+
+        Returns their whole career in ``person.experiences`` (every position held, in
+        profile order), plus education, skills and certifications. The API bills
+        **1 record on success**.
+        """
+        return await self._client._request(
+            "POST",
+            _PERSON,
+            body={"person_linkedin_url": person_linkedin_url},
+            cast_to=PersonEnrichmentResponse,
+            timeout=timeout,
+        )
 
     async def email(
         self, *, person_linkedin_url: str, timeout: TimeoutParam = None

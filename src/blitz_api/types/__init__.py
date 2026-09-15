@@ -10,7 +10,7 @@ from __future__ import annotations
 from ._models import FairUsage, FairUsageRateLimit
 from .account import ActivePlan, KeyInfo
 from .changelog import ChangelogEntry, ChangelogLink, ChangelogResponse
-from .company import TamByJobsMatch
+from .company import TamByJobsMatch, TamByPeopleMatch
 from .enrichment import (
     CompanyDistributionByCountryItem,
     CompanyDistributionByCountryResponse,
@@ -23,6 +23,7 @@ from .enrichment import (
     EmailMatch,
     EmailToPersonResponse,
     LinkedinToDomainResponse,
+    PersonEnrichmentResponse,
     PhoneEnrichmentResponse,
     PhoneToPersonResponse,
 )
@@ -60,6 +61,7 @@ from .filters import (
     RangeFilter,
     SeniorityFilter,
     TamJobFilter,
+    TamPeopleFilter,
     WorkArrangementFilter,
 )
 from .jobs import Job
@@ -72,6 +74,7 @@ from .shared import (
     Certification,
     Company,
     Education,
+    EmployeeGrowth,
     Experience,
     Location,
     Person,
@@ -89,6 +92,7 @@ __all__ = [
     "Location",
     "Company",
     "HQ",
+    "EmployeeGrowth",
     # enums
     "Industry",
     "CompanyType",
@@ -123,6 +127,7 @@ __all__ = [
     "JobCompanyHQFilter",
     "JobCompanyFilter",
     "TamJobFilter",
+    "TamPeopleFilter",
     # envelope (on every response)
     "FairUsage",
     "FairUsageRateLimit",
@@ -136,11 +141,13 @@ __all__ = [
     "Job",
     # company (paginated results return the page classes exported from `blitz_api`)
     "TamByJobsMatch",
+    "TamByPeopleMatch",
     # changelog
     "ChangelogLink",
     "ChangelogEntry",
     "ChangelogResponse",
     # enrichment
+    "PersonEnrichmentResponse",
     "EmailMatch",
     "EmailEnrichmentResponse",
     "PhoneEnrichmentResponse",

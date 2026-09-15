@@ -49,10 +49,13 @@ _PERSON: dict[str, Any] = {
         "state_code": "CA",
         "country_code": "US",
         "continent": "North America",
+        "postal_code": "94089",
+        "street_address": "1600 Amphitheatre Parkway",
     },
     "linkedin_url": "https://www.linkedin.com/in/beulah-lee",
     "connections_count": 500,
-    "profile_picture_url": "https://media.licdn.com/dms/image/v2/photo",
+    # Always null since 2026-09-15; the API keeps the key so clients don't break.
+    "profile_picture_url": None,
     "experiences": [
         {
             "company_name": "Google",
@@ -64,14 +67,30 @@ _PERSON: dict[str, Any] = {
             "job_start_date": "2025-04-01",
             "job_end_date": None,
             "job_is_current": True,
+            "job_contract_type": "Full-time",
+            "job_work_arrangement": "Hybrid",
             "job_location": {"city": "Sunnyvale", "state_code": "CA", "country_code": "US"},
-        }
+        },
+        {
+            "company_name": "Stripe",
+            "job_title": "Backend Engineer",
+            "company_linkedin_url": "https://www.linkedin.com/company/stripe",
+            "company_linkedin_id": "6f0b1c53-2b4a-4a2e-9f55-1d3a2f1b7c88",
+            "company_domain": "stripe.com",
+            "job_description": None,
+            "job_start_date": "2023-02-01",
+            "job_end_date": "2025-03-01",
+            "job_is_current": False,
+            "job_contract_type": "Full-time",
+            "job_work_arrangement": "Remote",
+            "job_location": {"city": "San Francisco", "state_code": "CA", "country_code": "US"},
+        },
     ],
+    # The API folded the old ``field_of_study`` into ``degree`` on 2026-09-15.
     "education": [
         {
             "school_name": "Stanford University",
-            "degree": "Bachelor's degree",
-            "field_of_study": "Computer Science",
+            "degree": "Bachelor of Science, Computer Science",
             "start_date": "2019-01-01",
             "end_date": "2023-01-01",
         }
@@ -104,7 +123,22 @@ _COMPANY: dict[str, Any] = {
     },
     "domain": "google.com",
     "website": "https://www.google.com",
+    "slogan": "Organize the world's information.",
+    "revenue": 307394000000.0,
+    "employee_growth": [{"percentage": 12.5, "timespan": "1 year"}],
 }
+
+# A person whose optional list fields come back as ``null`` rather than ``[]``.
+PERSON_NULL_LISTS: dict[str, Any] = {
+    **_PERSON,
+    "experiences": None,
+    "education": None,
+    "skills": None,
+    "certifications": None,
+}
+
+# A company whose ``employee_growth`` comes back as ``null``.
+COMPANY_NULL_GROWTH: dict[str, Any] = {**_COMPANY, "employee_growth": None}
 
 PEOPLE_SEARCH: dict[str, Any] = {
     "total_results": 14337505,
@@ -167,6 +201,12 @@ WATERFALL_ICP: dict[str, Any] = {
     "max_results": 1,
     "results_length": 1,
     "results": [{"icp": 1, "ranking": 1, "person": _PERSON}],
+}
+
+PERSON_ENRICHMENT: dict[str, Any] = {
+    "found": True,
+    "person": _PERSON,
+    "fair_usage": FAIR_USAGE,
 }
 
 EMAIL_ENRICHMENT: dict[str, Any] = {
@@ -254,6 +294,15 @@ TAM_BY_JOBS: dict[str, Any] = {
     "cursor": "example_cursor_tam_p2",
 }
 
+# TAM by people: each match is a company plus how many of its employees matched.
+# Same envelope as TAM by jobs — no ``total_results``.
+TAM_BY_PEOPLE: dict[str, Any] = {
+    "results": [{"company": _COMPANY, "matched_people": 27}],
+    "results_length": 1,
+    "max_results": 1,
+    "cursor": "example_cursor_tam_people_p2",
+}
+
 # A 402 body: the API attaches the usage block so the caller can see when it resets.
 INSUFFICIENT_RECORDS: dict[str, Any] = {
     "success": False,
@@ -329,6 +378,20 @@ JOB_SEARCH_PAGE1: dict[str, Any] = {
 JOB_SEARCH_PAGE2: dict[str, Any] = {
     "total_results": 2,
     "results": [{**_JOB, "title": "Job Two"}],
+    "results_length": 1,
+    "max_results": 1,
+    "cursor": None,
+}
+
+# Cursor-based TAM by people: page 1 returns a cursor; page 2 ends the walk.
+TAM_BY_PEOPLE_PAGE1: dict[str, Any] = {
+    "results": [{"company": {**_COMPANY, "name": "Company One"}, "matched_people": 27}],
+    "results_length": 1,
+    "max_results": 1,
+    "cursor": "next-cursor",
+}
+TAM_BY_PEOPLE_PAGE2: dict[str, Any] = {
+    "results": [{"company": {**_COMPANY, "name": "Company Two"}, "matched_people": 4}],
     "results_length": 1,
     "max_results": 1,
     "cursor": None,
