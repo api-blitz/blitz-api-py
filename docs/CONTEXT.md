@@ -28,12 +28,18 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
 - **Base URL**: `https://api.blitz-api.ai`
 - **Auth**: `x-api-key` HTTP header (NOT `Authorization`). Key from
   [app.blitz-api.ai](https://app.blitz-api.ai).
-- **Rate limit**: 5 req/s on all plans; per-key value in
-  `key-info.max_requests_per_seconds`.
-- **OpenAPI**: 3.1.0, version `2.0.0`. All endpoints are `/v2/...`.
+- **Rate limit**: 10 req/s **per endpoint** on all plans (each endpoint has its own
+  budget); plans created before 2026-09-30 run at 50 req/s. Per-key value in
+  `key-info.max_requests_per_seconds` and, live, in `fair_usage.rate_limit`. The SDK's
+  client-side default stays at **5 rps** — half the cap, per the vendor's own SDK docs.
+- **OpenAPI**: 3.1.0. `https://api.blitz-api.ai/openapi` reports `info.version` `1.0.0`;
+  the docs-site mirror (`docs.blitz-api.ai/api-reference/v2.openapi.json`) says `2.0.0`.
+  They are two different documents — the live endpoint is the one `gen_enums.py --fetch`
+  reads and the one to audit against. All endpoints are `/v2/...`.
 - **Status conventions**: 401 invalid/missing key · 402 insufficient records ·
-  404 key not found · 429 rate limited (official client waits 60 s then retries) ·
-  5xx server error.
+  404 key not found · 422 invalid request body (e.g. a filter list over 50 entries, or
+  `null` on a required field) · 429 rate limited (official client waits 60 s then
+  retries) · 5xx server error.
 
 ### Endpoint → method → response model (all 21)
 
@@ -254,10 +260,13 @@ Internal decisions worth preserving:
   fetch it from the public OpenAPI endpoint (§2).
 - **Client-side rate limiter is a per-process sliding window, applied per endpoint.** At
   most `rps` requests may begin in any rolling 1-second window (`_rate_limit.py`), matching
-  the Blitz docs ("max 5 per 1000 ms") and the official reference client. A token bucket
-  was rejected: its initial capacity lets a fresh client fire `rps` requests *and* refill
-  within the first second, briefly doubling the rate — the exact pattern the docs say
-  triggers 429 on bulk runs. Default 5 rps; `rate_limit_rps=None` disables it.
+  the Blitz docs' per-rolling-second wording and the official reference client. A token
+  bucket was rejected: its initial capacity lets a fresh client fire `rps` requests *and*
+  refill within the first second, briefly doubling the rate — the exact pattern the docs say
+  triggers 429 on bulk runs. Default 5 rps — deliberately **half** the API's current
+  10 rps/endpoint cap, which is what the vendor's own SDK docs prescribe, and which leaves
+  throughput on the table for anyone who raises it to their key's
+  `max_requests_per_seconds`. `rate_limit_rps=None` disables it.
   (Auto-detecting the limit from `key-info` on first call was considered but not
   implemented — would add a surprise network call on construction.)
   The client holds **one limiter per endpoint path**, built lazily in
@@ -458,7 +467,8 @@ the very first `0.1.0`, see the first-release note in `CONTRIBUTING.md`.
 ## 11. Known limitations / future work
 
 - No streaming and no built-in response caching. (Per-call `timeout=` IS supported.)
-- Rate limiter does not auto-detect the per-key limit from `key-info` (uses 5 rps).
+- Rate limiter does not auto-detect the per-key limit from `key-info` (defaults to 5 rps,
+  half the API's 10 rps/endpoint cap; legacy keys are allowed 50).
 - Client-side rate limiting is per process: it mirrors the server's per-endpoint limit for
   one client, but multiple processes sharing an endpoint's budget can still exceed it and
   rely on the 429 retry path (see §5).
