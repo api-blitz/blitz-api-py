@@ -8,9 +8,9 @@ pagination page classes) carry it — nested entities like ``Person`` do not.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, BeforeValidator, ConfigDict
 
 
 class BlitzModel(BaseModel):
@@ -74,13 +74,20 @@ class BlitzResponse(BlitzModel):
     fair_usage: FairUsage | None = None
 
 
-def null_list_to_empty(value: Any) -> Any:
-    """Coerce a ``null`` list field to ``[]``.
+_ItemT = TypeVar("_ItemT")
 
-    Several list-valued response fields are ``array | null`` in the spec (a person's
-    ``education`` / ``skills`` / ``certifications``, a company's ``employee_growth``, a
-    changelog entry's ``affected_endpoints`` / ``links``). Used as a ``mode="before"``
-    validator so those fields are always iterable instead of raising on ``null`` —
-    matching the TS SDK's ``blitzList``.
-    """
+
+def _null_to_empty(value: Any) -> Any:
     return [] if value is None else value
+
+
+#: A list field the API may send as ``null`` instead of ``[]``.
+#:
+#: Many list-valued response fields are ``array | null`` in the spec (a person's
+#: ``education`` / ``skills`` / ``certifications``, a company's ``employee_growth``, a
+#: changelog entry's ``affected_endpoints`` / ``links``). A plain ``list[T] = []`` field
+#: *rejects* ``null``, so those payloads would raise. Declaring the field
+#: ``BlitzList[T]`` coerces ``null`` to ``[]`` at parse time, so the attribute is always
+#: iterable — the TS SDK's ``blitzList``, expressed in the type rather than in a
+#: separate validator that has to name its fields as strings.
+BlitzList = Annotated[list[_ItemT], BeforeValidator(_null_to_empty)]

@@ -137,7 +137,7 @@ src/blitz_api/
     _models.py       BlitzModel (base for all responses, extra="allow", see §5) +
                      BlitzResponse (adds the fair_usage envelope; base for top-level
                      responses and BasePage) + FairUsage / FairUsageRateLimit +
-                     null_list_to_empty (shared null->[] before-validator, see §5).
+                     BlitzList (Annotated list type that coerces null->[], see §5).
     shared.py        Person, Experience, Education, Certification, Location, HQ,
                      EmployeeGrowth, Company.
     enums.py         GENERATED. Industry (534) + CompanyType/EmployeeRange/Continent/
@@ -220,14 +220,33 @@ Internal decisions worth preserving:
   also attached to `402` bodies, so `APIStatusError.fair_usage` parses it there
   (`_parse_fair_usage` never raises — a malformed block yields `None` rather than masking
   the API's own error).
-- **`null` list fields are coerced to `[]` by a shared before-validator.** The spec types
-  a person's `education`/`skills`/`certifications`/`experiences`, a company's
-  `employee_growth`, and a changelog entry's `affected_endpoints`/`links` as
-  `array | null`, and the API really does send `null` for an empty list. A bare
-  `list[T] = []` field **rejects** `null` (`ValidationError`), so `_models.null_list_to_empty`
-  is registered as a `mode="before"` `field_validator` on each of them — the fields are then
-  always iterable, matching the TS SDK's `blitzList`. One shared function rather than a
-  per-model copy (it started life private to `changelog.py`).
+- **`null` list fields are coerced to `[]` by a type, not a validator.** The spec types a
+  person's `education`/`skills`/`certifications`, a company's `employee_growth`, and a
+  changelog entry's `affected_endpoints`/`links` as `array | null`, and the API really does
+  send `null` for an empty list. A bare `list[T] = []` field **rejects** `null`
+  (`ValidationError`). The fix is `_models.BlitzList[T]` —
+  `Annotated[list[T], BeforeValidator(...)]` — used as the field's annotation, so the
+  coercion travels with the type. Chosen over a `field_validator("a", "b", …)` on each
+  model because that form names its fields as **strings**: adding a nullable list field
+  means remembering to also extend a string tuple somewhere else in the class, and nothing
+  catches you when you don't. `BlitzList` makes the field self-declaring and that class of
+  mistake unrepresentable. `Person.experiences` uses it too even though the spec currently
+  marks it non-nullable — uniform across the four person lists beats tracking which single
+  one upstream has not yet loosened.
+- **The `Tam*Filter` request types extend their base, they don't restate it.**
+  `TamJobFilter(JobFilter)` and `TamPeopleFilter(PeopleFilter)` add only the keys the TAM
+  endpoints have on top of the shared criteria. This replaced a flat copy-paste convention
+  whose stated rationale — "so the shared `JobFilter` never gains `min_per_company`" — was
+  simply wrong: inheriting *never* mutates the parent. Measured both forms against mypy and
+  pyright, and they are **identical** on every case that matters: a dict literal carrying
+  `min_per_company` is rejected by `search.people` either way; a *declared*
+  `TamPeopleFilter` variable is accepted by `search.people` either way (TypedDict
+  assignability is structural, so the flat copy never bought that protection); resolved
+  key sets and required/optional splits match exactly. The copy therefore bought nothing
+  and cost a guaranteed drift point between two types the API documents as taking *the
+  same input*. If you re-flatten these, you are re-introducing that drift for no
+  type-safety gain — the one honest cost of inheritance is that an IDE hover on the child
+  shows only the added keys.
 - **Superset models with nullable fields, not per-endpoint duplicates.** The API
   returns slightly different shapes for the "same" object across endpoints. We model
   one `Person`/`Company`/`Experience`/etc. with the union of fields, all `Optional`.
@@ -687,3 +706,16 @@ the history rather than re-litigating it.
   `to_jsonable`/`_drop_none` behave; and unlimited `records_remaining` landed in 3.0.0. Enums
   re-fetched — no taxonomy drift (spec `info.version` still 1.0.0). Mirror all of this in
   `blitz-api-js`.
+- **2026-09-15** — Code-quality pass over the sync above; behaviour unchanged, 184 tests
+  still green. **(1)** The `null → []` coercion moved from a `field_validator("a", "b", …)`
+  on each model to `_models.BlitzList[T]`, an `Annotated[list[T], BeforeValidator(...)]`
+  used as the field annotation. The validator form names its fields as strings, so adding a
+  nullable list field silently skips the coercion unless you also edit a tuple elsewhere in
+  the class; the type form cannot be got wrong. Removed the two `_empty_*` class attributes
+  from `shared.py` and the one in `changelog.py`. **(2)** `TamJobFilter` / `TamPeopleFilter`
+  now extend `JobFilter` / `PeopleFilter` instead of restating every field. The old
+  flat-`TypedDict` convention's rationale was incorrect (inheriting cannot add a key to the
+  parent), and both forms were measured identical under mypy *and* pyright — same resolved
+  keys, same required/optional split, same accept/reject on every call-site shape. The copy
+  bought nothing and guaranteed eventual drift between types the API documents as taking the
+  same input. Net: 13 duplicated field declarations deleted. See §5 for the full measurement.

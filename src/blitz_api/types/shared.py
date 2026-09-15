@@ -8,9 +8,7 @@ modeled as ``Optional`` on a single superset type rather than duplicated.
 
 from __future__ import annotations
 
-from pydantic import field_validator
-
-from ._models import BlitzModel, null_list_to_empty
+from ._models import BlitzList, BlitzModel
 
 __all__ = [
     "Location",
@@ -97,15 +95,10 @@ class Person(BlitzModel):
     #: Always ``None`` since 2026-09-15; the API keeps the key so clients don't break.
     profile_picture_url: str | None = None
     #: Every position the person has held, in profile order.
-    experiences: list[Experience] = []
-    education: list[Education] = []
-    skills: list[str] = []
-    certifications: list[Certification] = []
-
-    # The spec types these as ``array | null``; coerce so they are always iterable.
-    _empty_lists = field_validator(
-        "experiences", "education", "skills", "certifications", mode="before"
-    )(null_list_to_empty)
+    experiences: BlitzList[Experience] = []
+    education: BlitzList[Education] = []
+    skills: BlitzList[str] = []
+    certifications: BlitzList[Certification] = []
 
 
 class HQ(BlitzModel):
@@ -154,6 +147,4 @@ class Company(BlitzModel):
     #: Estimated annual revenue in USD.
     revenue: float | None = None
     #: Headcount growth, one entry per reported window.
-    employee_growth: list[EmployeeGrowth] = []
-
-    _empty_growth = field_validator("employee_growth", mode="before")(null_list_to_empty)
+    employee_growth: BlitzList[EmployeeGrowth] = []

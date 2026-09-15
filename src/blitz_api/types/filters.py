@@ -219,48 +219,32 @@ class JobFilter(TypedDict, total=False):
     date_posted: DatePostedFilter
 
 
-class TamJobFilter(TypedDict, total=False):
-    """Job criteria for ``company.tam_by_jobs`` — the same fields as ``JobFilter`` plus a
+class TamJobFilter(JobFilter, total=False):
+    """Job criteria for ``company.tam_by_jobs`` — every ``JobFilter`` field plus a
     per-company floor.
 
-    Defined as a standalone ``TypedDict`` (this SDK's flat-``TypedDict`` convention, no
-    inheritance) so the shared ``JobFilter`` used by ``jobs.search`` / ``jobs.company`` —
-    which have no such field — never gains ``min_per_company``.
+    Extends ``JobFilter`` rather than restating it. Inheriting cannot add
+    ``min_per_company`` to ``JobFilter`` itself, so ``jobs.search`` / ``jobs.company``
+    keep rejecting it, and the shared job criteria can never drift between the two.
     """
 
-    title: KeywordFilter
-    description: KeywordFilter
-    ai_keywords: KeywordFilter  # Broad theme search across title, description, taxonomies.
-    field: KeywordFilter  # Professional field or discipline. Free-form — any label.
-    seniority: SeniorityFilter
-    employment_type: EmploymentTypeFilter
-    work_arrangement: WorkArrangementFilter
-    location: JobLocationFilter
-    date_posted: DatePostedFilter
     # Only include companies with at least this many matching job postings (integer,
     # 0-25; ``0`` = unset). Raises the bar for what counts as a hit when building a TAM.
     min_per_company: int
 
 
-class TamPeopleFilter(TypedDict, total=False):
-    """People criteria for ``company.tam_by_people`` — the same fields as
-    :class:`PeopleFilter`, plus ``linkedin_url`` and a per-company floor.
+class TamPeopleFilter(PeopleFilter, total=False):
+    """People criteria for ``company.tam_by_people`` — every :class:`PeopleFilter` field
+    plus ``linkedin_url`` and a per-company floor.
 
-    Defined as a standalone ``TypedDict`` (this SDK's flat-``TypedDict`` convention, no
-    inheritance) for the same reason as :class:`TamJobFilter`: ``search.people`` has
-    neither ``min_per_company`` nor a working ``linkedin_url``, so its ``PeopleFilter``
-    must not gain them.
+    Extends ``PeopleFilter`` for the same reason as :class:`TamJobFilter`, and because
+    the API documents this endpoint as taking *the same input as Find People*: sharing
+    the base is what keeps that true as the persona filters evolve.
     """
 
     # Match specific people by LinkedIn URL. Still honoured here (unlike on
     # ``search.people``). Capped at 50 entries like every other filter list.
     linkedin_url: list[str]
-    job_title: PeopleJobTitleFilter
-    job_function: list[JobFunctionValue]
-    job_level: list[JobLevelValue]
-    min_connections: int
-    location: PeopleLocationFilter
-    education: KeywordFilter
     # Only return companies with at least this many matching current employees (integer,
     # 0-25; ``0`` = unset). When it filters heavily a page may come back partial — keep
     # paging until ``cursor`` is ``None``.
