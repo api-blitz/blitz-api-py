@@ -23,7 +23,6 @@ from ._exceptions import (
     APITimeoutError,
     AuthenticationError,
     BlitzError,
-    InsufficientCreditsError,  # pyright: ignore[reportDeprecated]
     InsufficientRecordsError,
     NotFoundError,
     RateLimitError,
@@ -59,8 +58,6 @@ __all__ = [
     "NotFoundError",
     "RateLimitError",
     "ServerError",
-    # deprecated alias (removed in 3.0.0)
-    "InsufficientCreditsError",
     # commonly-used types (full set under blitz_api.types)
     "Industry",
     "CompanyFilter",

@@ -346,8 +346,8 @@ BlitzError
     └── ServerError               # 5xx (only after retries exhausted)
 ```
 Unmapped non-2xx → generic `APIStatusError` (or `ServerError` for any 5xx).
-`InsufficientCreditsError` is a deprecated alias of the `402` class, kept for backward
-compatibility and scheduled for removal in 3.0.0.
+The `InsufficientCreditsError` alias of the `402` class (deprecated in 2.3) was **removed
+in 4.0.0**; `tests/test_exceptions.py` pins its absence so it is not reintroduced.
 
 ---
 
@@ -673,7 +673,7 @@ the history rather than re-litigating it.
   nothing before, and our own three deliberate references need
   `# pyright: ignore[reportDeprecated]`. mypy is silent unless you pass
   `--enable-error-code=deprecated` — a useful audit (`uv run mypy --enable-error-code=deprecated`
-  should flag only those three). Removal scheduled for **3.0.0**. **(2)** All billing prose
+  should flag only those three). Removal scheduled for **3.0.0** — *done in 4.0.0, see the 2026-09-16 entry below; 3.0.0 shipped without it.* **(2)** All billing prose
   realigned to the spec's wording (`bills 1 record per result returned`, `costs no records`,
   `record balance`) across the async resources, `_pagination_async.py`, the README, and this
   file; sync twins regenerated via `gen_sync.py`. The README stays on the current surface only —
@@ -741,3 +741,16 @@ the history rather than re-litigating it.
   the 50-entry cap and the advisory enum typing. Also noted: the spec's
   `phone-to-person` request *example* changed (`+1234567890` → `+123456789`) — example
   only, no schema or SDK impact. No response-shape changes; all three audits still clean.
+- **2026-09-16** — Removed the deprecated **`InsufficientCreditsError`** alias, closing out
+  the schedule set when it was deprecated on 2026-09-02. It was marked for removal in
+  3.0.0 but survived that release, so it went in the next major instead of drifting
+  further. Gone from `_exceptions.py` (the whole `TYPE_CHECKING`/`else` split, and with it
+  the last use of `typing_extensions.deprecated` and the three
+  `# pyright: ignore[reportDeprecated]` suppressions), from the `blitz_api` re-export and
+  `__all__`, and from the compat test — which is **replaced, not deleted**, by
+  `test_insufficient_credits_alias_is_gone`, asserting the name is absent from both the
+  module and `__all__` so it cannot be reintroduced by accident. `uv run mypy
+  --enable-error-code=deprecated` is now clean, where it previously flagged the three
+  deliberate references. The `402` class is `InsufficientRecordsError`, as it has been
+  since 2.3. Verified against `GET /changelog/` in the same pass: still 28 entries, nothing
+  newer than the two 2026-09-16 changes already applied, so the SDK is current with the API.

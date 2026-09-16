@@ -14,9 +14,6 @@
         └── ServerError               # 5xx (after retries are exhausted)
 
 Catch :class:`BlitzError` to handle anything this SDK raises.
-
-``InsufficientCreditsError`` remains available as a deprecated alias of
-:class:`InsufficientRecordsError`; it is scheduled for removal in 3.0.0.
 """
 
 from __future__ import annotations
@@ -29,7 +26,6 @@ from .types._models import FairUsage
 
 if TYPE_CHECKING:
     import httpx
-    from typing_extensions import deprecated
 
 
 def _parse_fair_usage(body: Any) -> FairUsage | None:
@@ -144,20 +140,3 @@ class RateLimitError(APIStatusError):
 
 class ServerError(APIStatusError):
     """5xx — the API failed (raised only after retries are exhausted)."""
-
-
-# --- Deprecated aliases ------------------------------------------------------
-
-if TYPE_CHECKING:
-
-    @deprecated(
-        "InsufficientCreditsError is renamed to InsufficientRecordsError and will be "
-        "removed in 3.0.0."
-    )
-    class InsufficientCreditsError(InsufficientRecordsError):
-        """Deprecated alias for :class:`InsufficientRecordsError`."""
-
-else:
-    # A true alias, not a subclass: the client raises ``InsufficientRecordsError``, so a
-    # subclass here would stop ``except InsufficientCreditsError`` from catching it.
-    InsufficientCreditsError = InsufficientRecordsError
