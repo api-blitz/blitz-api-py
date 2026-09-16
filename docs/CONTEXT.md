@@ -83,7 +83,7 @@ The API spec/docs are public. To inspect or refresh:
 This is the single most important fact about this codebase:
 
 - **Request bodies in the spec are richly typed** — nested objects, `required`,
-  defaults, and large `enum`s (e.g. the ~534-value `industry`). These are modeled
+  defaults, and large `enum`s (e.g. the ~535-value `industry`). These are modeled
   precisely (`TypedDict` filters + generated enums).
 - **Response bodies were example-only** when the models were written — every response
   schema was `{"type": "object", "example": {...}}` with **no `properties`**. An
@@ -140,7 +140,7 @@ src/blitz_api/
                      BlitzList (Annotated list type that coerces null->[], see §5).
     shared.py        Person, Experience, Education, Certification, Location, HQ,
                      EmployeeGrowth, Company.
-    enums.py         GENERATED. Industry (534) + CompanyType/EmployeeRange/Continent/
+    enums.py         GENERATED. Industry (535) + CompanyType/EmployeeRange/Continent/
                      SalesRegion/JobFunction/JobLevel/LastFundingType. Never hand-edit (see §7).
     filters.py       Request TypedDicts (CompanyFilter, PeopleFilter, CascadeTier,
                      TamJobFilter, TamPeopleFilter, ...)
@@ -353,13 +353,19 @@ compatibility and scheduled for removal in 3.0.0.
 
 ## 7. Data-model specifics & known quirks
 
-- **`Industry` has 534 unique values** including upstream data-quality oddities:
+- **`Industry` has 535 unique values** including upstream data-quality oddities:
   near-duplicates (`"Airlines and Aviation"` vs `"Airlines/Aviation"`, `"Hospitals"`
   vs `"Hospitals and Health Care"`) and one double-escaped value,
   `"Women\\'s Handbag Manufacturing"` (two literal backslashes + apostrophe). These
   are pulled straight from the live spec and kept **byte-for-byte** — they round-trip
   through the `--fetch` → `enum-source.json` (`json.dumps`) → `enums.py` (`repr`) pipeline
   unchanged — so requests match the API. Do not "fix" them.
+- **`Industry.UNKNOWN` (`"Unknown"`) is a bucket, not an industry.** Added upstream
+  2026-09-16 and appended at the *end* of the taxonomy (the generator preserves spec
+  order, so it is the last member, not alphabetical). It matches companies with no
+  industry on file, and it is directional: additive in `include`, subtractive in
+  `exclude`. Documented on `IndustryFilter`, since the semantics live with the filter
+  rather than the enum.
 - **Generated enum member names** are an upper-snake slug of the value
   (`"IT Services and IT Consulting"` → `IT_SERVICES_AND_IT_CONSULTING`); collisions
   get a numeric suffix. The `.value` is always the exact API string.
@@ -378,8 +384,10 @@ compatibility and scheduled for removal in 3.0.0.
 - **`Person.headline` is derived**, not the profile's free-text headline: the API builds it
   from the first position as `"<job title> | @<employer>"`.
 - **Search filter lists are capped at 50 entries** server-side (422 past that), and
-  `waterfall_icp`'s `cascade` at 10 tiers. Documented in `filters.py`, not enforced — the
-  SDK doesn't pre-validate list lengths (same posture as the advisory enum typing).
+  `waterfall_icp`'s `cascade` at 10 tiers. A `RangeFilter` whose `min` exceeds its `max`
+  is also a 422 as of 2026-09-16 (`max: 0` still means unbounded). Documented in
+  `filters.py`, not enforced — the SDK doesn't pre-validate list lengths or range
+  ordering (same posture as the advisory enum typing).
 
 ---
 
@@ -719,3 +727,17 @@ the history rather than re-litigating it.
   keys, same required/optional split, same accept/reject on every call-site shape. The copy
   bought nothing and guaranteed eventual drift between types the API documents as taking the
   same input. Net: 13 duplicated field declarations deleted. See §5 for the full measurement.
+- **2026-09-16** — Re-pulled the live spec: two upstream changes, both request-side.
+  **(1)** `Industry` gained a 535th value, **`Unknown`**, appended at the end of the
+  taxonomy — a bucket matching companies with no industry on file, additive in `include`
+  and subtractive in `exclude`. Regenerated via `gen_enums.py --fetch` (one added member,
+  one cache line; every other value byte-identical). The semantics are documented on
+  `IndustryFilter`, not on the enum, because they are a property of how the filter reads
+  the value. It closes a real gap: before it, reaching those companies meant listing every
+  *other* industry in `exclude`, which the 50-entry cap made impossible. **(2)** A
+  `RangeFilter` with `min` above `max` now returns `422` naming the field (previously
+  accepted — no results, or a `500` on `company.revenue`); `max: 0` still means no upper
+  bound. Documented on `RangeFilter`; deliberately **not** pre-validated, consistent with
+  the 50-entry cap and the advisory enum typing. Also noted: the spec's
+  `phone-to-person` request *example* changed (`+1234567890` → `+123456789`) — example
+  only, no schema or SDK impact. No response-shape changes; all three audits still clean.

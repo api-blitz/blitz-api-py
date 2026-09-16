@@ -560,6 +560,7 @@ class Industry(str, Enum):
     WOOD_PRODUCT_MANUFACTURING = 'Wood Product Manufacturing'
     WRITING_AND_EDITING = 'Writing and Editing'
     ZOOS_AND_BOTANICAL_GARDENS = 'Zoos and Botanical Gardens'
+    UNKNOWN = 'Unknown'
 
 
 class CompanyType(str, Enum):

@@ -54,7 +54,15 @@ class KeywordFilter(TypedDict, total=False):
 
 
 class IndustryFilter(TypedDict, total=False):
-    """Include/exclude filter over the fixed industry taxonomy."""
+    """Include/exclude filter over the fixed industry taxonomy.
+
+    :attr:`~blitz_api.types.Industry.UNKNOWN` (``"Unknown"``) is a bucket, not a real
+    industry: it matches companies with **no industry on file**. In ``include`` it is
+    added to the industries you list (``["Banking", "Unknown"]`` returns banks *plus*
+    every company with no industry); in ``exclude`` it drops them. Before it existed,
+    reaching those companies meant listing every other industry in ``exclude``, which
+    the 50-entry cap made impossible.
+    """
 
     include: list[IndustryValue]
     exclude: list[IndustryValue]
@@ -75,7 +83,13 @@ class LastFundingTypeFilter(TypedDict, total=False):
 
 
 class RangeFilter(TypedDict, total=False):
-    """Numeric range filter. ``0`` means unset for most fields."""
+    """Numeric range filter. ``0`` means unset for most fields.
+
+    A ``max`` of ``0`` still means *no upper bound*, but since 2026-09-16 a range whose
+    ``min`` is genuinely above its ``max`` is rejected with a ``422`` naming the field
+    (it used to be accepted, returning no results — or a ``500`` on ``company.revenue``).
+    Not pre-validated here, in line with the rest of the filter surface.
+    """
 
     min: float
     max: float

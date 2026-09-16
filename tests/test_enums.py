@@ -26,7 +26,13 @@ def test_industry_is_a_str_enum() -> None:
 
 
 def test_industry_has_full_taxonomy() -> None:
-    assert len(list(Industry)) == 534
+    assert len(list(Industry)) == 535
+
+
+def test_industry_has_the_unknown_bucket() -> None:
+    # Added 2026-09-16: matches companies with no industry on file. Additive in
+    # ``include``, subtractive in ``exclude`` — see IndustryFilter.
+    assert Industry.UNKNOWN.value == "Unknown"
 
 
 def test_small_enums_have_expected_values() -> None:
