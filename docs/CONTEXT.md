@@ -663,7 +663,8 @@ the history rather than re-litigating it.
   **(5)** `CascadeTier.location`/`include_headline_search` → `NotRequired` (spec requires only
   `include_title`); `current_date`'s `region` made optional (spec default). `current_date` sends an
   empty body when `region` omitted. Async edits regenerated to sync via `gen_sync.py`.
-  `CompanyFilter.linkedin_url` is a documented superset field (applies on `search.people` only).
+  `CompanyFilter.linkedin_url` is a documented superset field (applies on `search.people` only)
+  — *superseded 2026-09-22: it moved to the new `PeopleCompanyFilter`; see the entry below*.
 - **2026-08-13** — Added `company.tam_by_jobs()` (`POST /v2/company/tam-by-jobs`, new
   `client.company` namespace, cursor-paginated → `CursorPage[TamByJobsMatch]`; the streamed item
   is a `{company, matched_jobs}` match reusing the shared `Company`, and the envelope carries **no**
@@ -869,6 +870,17 @@ the history rather than re-litigating it.
   time: every response object schema is `additionalProperties: false`, so this audit is
   decisive rather than suggestive, and it is cheap to re-run — the throwaway script just
   walks `properties` against `model_fields` / `get_type_hints`.
+  **(8) `PeopleCompanyFilter` split out of `CompanyFilter` (issue #25) — BREAKING.**
+  Closes the last request-side divergence with JS (see the resolved item 2 below). The live
+  spec declares `company.linkedin_url` on `/v2/search/people` and `/v2/company/tam-by-people`
+  but not `/v2/search/companies`; because request schemas carry no `additionalProperties:
+  false`, `search.companies` accepted the key and silently returned results for the caller's
+  *other* criteria. `CompanyFilter` is now the bare shared firmographic set,
+  `PeopleCompanyFilter(CompanyFilter)` adds `linkedin_url`, and the two people-side methods
+  take the subclass. Exported from `blitz_api` and `blitz_api.types`; pinned by the new
+  `tests/test_filters.py`, which also guards the pre-existing `PeopleFilter`/`TamPeopleFilter`
+  split against regressing the same way.
+
   **Mirrored in `blitz-api-js` by [PR #23](https://github.com/api-blitz/blitz-api-js/pull/23)**
   (`sync-sdk-with-openapi-spec`, open alongside this one) — not a prose-only follow-up. It
   lands **(1)**, **(2)**, **(3)**, **(5)** and **(6)**, and re-runs **(7)**: the JS `Company`
@@ -884,9 +896,14 @@ the history rather than re-litigating it.
      exhaustive), while JS pins `specialties` as the *one* list that stays `null`, with a test
      asserting `toBeNull()` and a documented carve-out ("use plain `.nullish()` only for a list
      the API documents as genuinely nullable"). Pick one convention and apply it to both.
-  2. **`CompanyFilter.linkedin_url` (this SDK is the stale one).** The live spec has
+  2. ~~**`CompanyFilter.linkedin_url` (this SDK is the stale one).**~~ **Resolved 2026-09-22
+     (issue #25) — the split is now ported, so the two SDKs agree.** The live spec has
      `linkedin_url` on the company filter of `/v2/search/people` and `/v2/company/tam-by-people`
-     but **not** `/v2/search/companies`; request schemas are open, so `search.companies` accepts
-     and silently ignores it — the worst failure mode. JS PR #23 splits it into
-     `PeopleCompanyFilter extends CompanyFilter` to make that a compile error. This SDK still
-     carries `linkedin_url` on the shared `CompanyFilter`, so the split is unported.
+     but **not** `/v2/search/companies` (re-verified against the live spec); request schemas are
+     open, so `search.companies` accepts and silently ignores it — the worst failure mode. This
+     SDK now matches JS PR #23: `PeopleCompanyFilter(CompanyFilter)` carries `linkedin_url`, and
+     `search.people` / `company.tam_by_people` take it while `search.companies` stays on the bare
+     `CompanyFilter`. Same shape as the `TamPeopleFilter`/`PeopleFilter` split, and the structural
+     `TypedDict` assignability caveat from `TamJobFilter` applies verbatim: it rejects a *dict
+     literal* carrying the key, not a *declared* `PeopleCompanyFilter` variable. Pinned by
+     `tests/test_filters.py`.

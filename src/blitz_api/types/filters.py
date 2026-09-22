@@ -113,11 +113,13 @@ class CompanyHQFilter(TypedDict, total=False):
 
 
 class CompanyFilter(TypedDict, total=False):
-    """Company search criteria, shared by ``search.companies`` and ``search.people``."""
+    """Company search criteria, shared by ``search.companies``, ``search.people`` and
+    ``company.tam_by_people``.
 
-    # Applied on ``search.people`` / ``company.tam_by_people`` only;
-    # ``search.companies`` ignores it.
-    linkedin_url: list[str]
+    ``linkedin_url`` is deliberately **not** here: only the people-side endpoints honour
+    it, and ``search.companies`` accepts-then-ignores it. See :class:`PeopleCompanyFilter`.
+    """
+
     name: KeywordFilter
     industry: IndustryFilter
     type: CompanyTypeFilter
@@ -137,6 +139,31 @@ class CompanyFilter(TypedDict, total=False):
     keywords: KeywordFilter
     founded_year: RangeFilter
     hq: CompanyHQFilter
+
+
+class PeopleCompanyFilter(CompanyFilter, total=False):
+    """Company criteria for the people-side searches — every :class:`CompanyFilter` field
+    plus the ``linkedin_url`` filter that only ``search.people`` and
+    ``company.tam_by_people`` honour.
+
+    Extending, rather than leaving ``linkedin_url`` on the shared filter, keeps it off
+    ``search.companies``: the live spec declares it on the ``company`` object of
+    ``/v2/search/people`` and ``/v2/company/tam-by-people`` but **not**
+    ``/v2/search/companies``, and request schemas are open (no ``additionalProperties:
+    false``), so that endpoint accepts the key and silently returns results for your other
+    criteria. That is the same accepted-but-ignored failure mode that got ``linkedin_url``
+    removed from :class:`PeopleFilter`, and the same split as :class:`TamPeopleFilter` over
+    :class:`PeopleFilter`.
+
+    The assignability caveat on :class:`TamJobFilter` applies verbatim: this only rejects a
+    ``search.companies`` call site that passes a *dict literal* carrying ``linkedin_url``.
+    A **declared** ``PeopleCompanyFilter`` variable is still accepted there, because
+    ``TypedDict`` assignability is structural.
+    """
+
+    # Match specific companies by LinkedIn URL. Capped at 50 entries like every other
+    # filter list.
+    linkedin_url: list[str]
 
 
 class PeopleJobTitleFilter(TypedDict, total=False):

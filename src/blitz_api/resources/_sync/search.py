@@ -14,6 +14,7 @@ from ...types.filters import (
     ContinentValue,
     JobFunctionValue,
     JobLevelValue,
+    PeopleCompanyFilter,
     PeopleFilter,
     SalesRegionValue,
 )
@@ -36,7 +37,7 @@ class SearchResource:
     def people(
         self,
         *,
-        company: CompanyFilter | None = None,
+        company: PeopleCompanyFilter | None = None,
         people: PeopleFilter | None = None,
         max_results: int | None = None,
         cursor: str | None = None,

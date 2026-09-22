@@ -9,7 +9,12 @@ from typing import TYPE_CHECKING
 from ..._compat import TimeoutParam
 from ..._pagination_sync import CursorPage
 from ...types.company import TamByJobsMatch, TamByPeopleMatch
-from ...types.filters import CompanyFilter, JobCompanyFilter, TamJobFilter, TamPeopleFilter
+from ...types.filters import (
+    JobCompanyFilter,
+    PeopleCompanyFilter,
+    TamJobFilter,
+    TamPeopleFilter,
+)
 
 if TYPE_CHECKING:
     from ..._client import BlitzAPI
@@ -55,7 +60,7 @@ class CompanyResource:
     def tam_by_people(
         self,
         *,
-        company: CompanyFilter | None = None,
+        company: PeopleCompanyFilter | None = None,
         people: TamPeopleFilter | None = None,
         max_results: int | None = None,
         cursor: str | None = None,

@@ -34,6 +34,7 @@ from ._version import __version__
 from .types import (
     CompanyFilter,
     Industry,
+    PeopleCompanyFilter,
     PeopleFilter,
 )
 
@@ -61,5 +62,6 @@ __all__ = [
     # commonly-used types (full set under blitz_api.types)
     "Industry",
     "CompanyFilter",
+    "PeopleCompanyFilter",
     "PeopleFilter",
 ]

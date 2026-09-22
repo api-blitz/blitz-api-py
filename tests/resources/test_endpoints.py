@@ -156,6 +156,32 @@ def test_search_people_serializes_funding_and_hq_state_filters(httpx_mock: HTTPX
     }
 
 
+def test_search_people_serializes_company_linkedin_url(httpx_mock: HTTPXMock) -> None:
+    # ``company.linkedin_url`` is honoured here (and on company.tam_by_people), but not on
+    # search.companies — hence the PeopleCompanyFilter split.
+    httpx_mock.add_response(url=url("/v2/search/people"), method="POST", json=data.PEOPLE_SEARCH)
+    _client().search.people(
+        company={"linkedin_url": ["https://www.linkedin.com/company/openai"]},
+        people={"job_level": [JobLevel.VP]},
+    )
+    assert _sent_body(httpx_mock) == {
+        "company": {"linkedin_url": ["https://www.linkedin.com/company/openai"]},
+        "people": {"job_level": ["VP"]},
+    }
+
+
+async def test_async_search_people_serializes_company_linkedin_url(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(url=url("/v2/search/people"), method="POST", json=data.PEOPLE_SEARCH)
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        result = await client.search.people(
+            company={"linkedin_url": ["https://www.linkedin.com/company/openai"]},
+        )
+    assert isinstance(result, AsyncCursorPage)
+    assert _sent_body(httpx_mock) == {
+        "company": {"linkedin_url": ["https://www.linkedin.com/company/openai"]},
+    }
+
+
 def test_search_companies(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(
         url=url("/v2/search/companies"), method="POST", json=data.COMPANY_SEARCH
