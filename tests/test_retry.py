@@ -98,7 +98,9 @@ def test_429_retry_after_http_date(httpx_mock: HTTPXMock, sleeps: SleepRecorder)
     assert sleeps.calls == [0.0]
 
 
-@pytest.mark.parametrize("status", [400, 401, 402, 404])
+# 422 is earned deterministically — a filter list over 50 entries, or a ``RangeFilter``
+# whose ``min`` exceeds its ``max`` — so retrying one only re-bills the same failure.
+@pytest.mark.parametrize("status", [400, 401, 402, 404, 422])
 def test_client_errors_are_not_retried(
     httpx_mock: HTTPXMock, sleeps: SleepRecorder, status: int
 ) -> None:
