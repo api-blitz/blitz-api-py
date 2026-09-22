@@ -18,6 +18,7 @@ _EMPLOYEE_FINDER = url("/v2/search/employee-finder")
 _JOBS_SEARCH = url("/v2/jobs/search")
 _JOBS_COMPANY = url("/v2/jobs/company")
 _TAM_BY_JOBS = url("/v2/company/tam-by-jobs")
+_TAM_BY_PEOPLE = url("/v2/company/tam-by-people")
 
 
 def _client() -> BlitzAPI:
@@ -206,27 +207,19 @@ def test_jobs_cursor_guard_aborts_on_non_advancing_cursor(httpx_mock: HTTPXMock)
 
 
 def test_tam_by_jobs_streams_matches_across_pages(httpx_mock: HTTPXMock) -> None:
-    # Self-contained (no data.py fixtures): page 1 returns a cursor; page 2 returns
-    # cursor=null and terminates the walk.
+    # Page 1 returns a cursor; page 2 returns cursor=null and terminates the walk.
+    # No ``total`` — like tam_by_people, this envelope carries no ``total_results``.
     httpx_mock.add_response(
         url=_TAM_BY_JOBS,
         method="POST",
-        json={
-            "results": [{"company": {"name": "TAM One"}, "matched_jobs": 3}],
-            "results_length": 1,
-            "max_results": 1,
-            "cursor": "next-cursor",
-        },
+        json=data.cursor_page(
+            [{"company": {"name": "TAM One"}, "matched_jobs": 3}], cursor="next-cursor"
+        ),
     )
     httpx_mock.add_response(
         url=_TAM_BY_JOBS,
         method="POST",
-        json={
-            "results": [{"company": {"name": "TAM Two"}, "matched_jobs": 5}],
-            "results_length": 1,
-            "max_results": 1,
-            "cursor": None,
-        },
+        json=data.cursor_page([{"company": {"name": "TAM Two"}, "matched_jobs": 5}], cursor=None),
     )
 
     matches = list(_client().company.tam_by_jobs(max_results=1))
@@ -240,6 +233,29 @@ def test_tam_by_jobs_streams_matches_across_pages(httpx_mock: HTTPXMock) -> None
     # First request omits the cursor; the second carries the cursor page 1 returned.
     assert "cursor" not in json.loads(requests[0].content)
     assert json.loads(requests[1].content)["cursor"] == "next-cursor"
+
+
+# --- cursor-based (company.tam_by_people) ------------------------------------------
+
+
+def test_tam_by_people_streams_matches_across_pages(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(url=_TAM_BY_PEOPLE, method="POST", json=data.TAM_BY_PEOPLE_PAGE1)
+    httpx_mock.add_response(url=_TAM_BY_PEOPLE, method="POST", json=data.TAM_BY_PEOPLE_PAGE2)
+
+    matches = list(_client().company.tam_by_people(people={"min_per_company": 2}, max_results=1))
+
+    assert [m.company.name if m.company else None for m in matches] == [
+        "Company One",
+        "Company Two",
+    ]
+    assert [m.matched_people for m in matches] == [27, 4]
+    requests = httpx_mock.get_requests()
+    assert len(requests) == 2
+    # First request omits the cursor; the second carries the cursor page 1 returned.
+    assert "cursor" not in json.loads(requests[0].content)
+    assert json.loads(requests[1].content)["cursor"] == "next-cursor"
+    # The people filter is carried forward onto the next page.
+    assert json.loads(requests[1].content)["people"] == {"min_per_company": 2}
 
 
 # --- page-number-based (employee_finder) -------------------------------------------

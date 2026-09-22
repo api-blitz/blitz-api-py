@@ -5,7 +5,9 @@ objects accepted by ``search.people`` and ``search.companies``. Enum-constrained
 fields accept either an enum member (autocompleted, e.g. ``Industry.BANKING``) or
 a raw string, so power users are never blocked.
 
-All keys are optional unless noted; omit a filter to leave it unset.
+All keys are optional unless noted; omit a filter to leave it unset. The search
+endpoints cap every filter list at **50 entries** — a longer list is rejected with a
+``422``, so split a bigger inclusion/exclusion set across several requests.
 """
 
 from __future__ import annotations
@@ -52,7 +54,22 @@ class KeywordFilter(TypedDict, total=False):
 
 
 class IndustryFilter(TypedDict, total=False):
-    """Include/exclude filter over the fixed industry taxonomy."""
+    """Include/exclude filter over the fixed industry taxonomy.
+
+    :attr:`~blitz_api.types.Industry.UNKNOWN` (``"Unknown"``) is a bucket, not a real
+    industry. In ``include`` it is added to the industries you list (``["Banking",
+    "Unknown"]`` returns banks *plus* the bucket); in ``exclude`` it drops them. Before it
+    existed, reaching those records meant listing every other industry in ``exclude``,
+    which the 50-entry cap made impossible.
+
+    **What lands in the bucket depends on the endpoint** (widened 2026-09-17):
+
+    * ``search.companies`` — companies with no industry on file.
+    * ``search.people`` / ``company.tam_by_people`` — the above, **plus people with no
+      company attached at all**.
+    * ``jobs.search`` / ``company.tam_by_jobs`` (via :class:`JobCompanyFilter`) — the
+      above, **plus job postings with no company attached at all**.
+    """
 
     include: list[IndustryValue]
     exclude: list[IndustryValue]
@@ -73,7 +90,13 @@ class LastFundingTypeFilter(TypedDict, total=False):
 
 
 class RangeFilter(TypedDict, total=False):
-    """Numeric range filter. ``0`` means unset for most fields."""
+    """Numeric range filter. ``0`` means unset for most fields.
+
+    A ``max`` of ``0`` still means *no upper bound*, but since 2026-09-16 a range whose
+    ``min`` is genuinely above its ``max`` is rejected with a ``422`` naming the field
+    (it used to be accepted, returning no results — or a ``500`` on ``company.revenue``).
+    Not pre-validated here, in line with the rest of the filter surface.
+    """
 
     min: float
     max: float
@@ -90,10 +113,13 @@ class CompanyHQFilter(TypedDict, total=False):
 
 
 class CompanyFilter(TypedDict, total=False):
-    """Company search criteria, shared by ``search.companies`` and ``search.people``."""
+    """Company search criteria, shared by ``search.companies``, ``search.people`` and
+    ``company.tam_by_people``.
 
-    # Applied on ``search.people`` only; ``search.companies`` ignores it.
-    linkedin_url: list[str]
+    ``linkedin_url`` is deliberately **not** here: only the people-side endpoints honour
+    it, and ``search.companies`` accepts-then-ignores it. See :class:`PeopleCompanyFilter`.
+    """
+
     name: KeywordFilter
     industry: IndustryFilter
     type: CompanyTypeFilter
@@ -115,6 +141,31 @@ class CompanyFilter(TypedDict, total=False):
     hq: CompanyHQFilter
 
 
+class PeopleCompanyFilter(CompanyFilter, total=False):
+    """Company criteria for the people-side searches — every :class:`CompanyFilter` field
+    plus the ``linkedin_url`` filter that only ``search.people`` and
+    ``company.tam_by_people`` honour.
+
+    Extending, rather than leaving ``linkedin_url`` on the shared filter, keeps it off
+    ``search.companies``: the live spec declares it on the ``company`` object of
+    ``/v2/search/people`` and ``/v2/company/tam-by-people`` but **not**
+    ``/v2/search/companies``, and request schemas are open (no ``additionalProperties:
+    false``), so that endpoint accepts the key and silently returns results for your other
+    criteria. That is the same accepted-but-ignored failure mode that got ``linkedin_url``
+    removed from :class:`PeopleFilter`, and the same split as :class:`TamPeopleFilter` over
+    :class:`PeopleFilter`.
+
+    The assignability caveat on :class:`TamJobFilter` applies verbatim: this only rejects a
+    ``search.companies`` call site that passes a *dict literal* carrying ``linkedin_url``.
+    A **declared** ``PeopleCompanyFilter`` variable is still accepted there, because
+    ``TypedDict`` assignability is structural.
+    """
+
+    # Match specific companies by LinkedIn URL. Capped at 50 entries like every other
+    # filter list.
+    linkedin_url: list[str]
+
+
 class PeopleJobTitleFilter(TypedDict, total=False):
     """Job-title filter. Wrap a value in ``[brackets]`` for an exact match."""
 
@@ -133,9 +184,15 @@ class PeopleLocationFilter(TypedDict, total=False):
 
 
 class PeopleFilter(TypedDict, total=False):
-    """People search criteria for ``search.people``."""
+    """People search criteria for ``search.people``.
 
-    linkedin_url: list[str]  # Match specific people by LinkedIn URL (server caps at 50).
+    ``linkedin_url`` is deliberately absent: ``/v2/search/people`` stopped honouring it
+    on 2026-09-11 (the request still succeeds, but the filter is *ignored*, so you get
+    results for your other criteria instead of the people you asked for). Match specific
+    people by LinkedIn URL with ``company.tam_by_people`` (:class:`TamPeopleFilter`),
+    which still accepts it.
+    """
+
     job_title: PeopleJobTitleFilter
     job_function: list[JobFunctionValue]
     job_level: list[JobLevelValue]
@@ -148,7 +205,8 @@ class CascadeTier(TypedDict):
     """One tier of a waterfall ICP cascade, tried in order until results are found.
 
     Only ``include_title`` is required; the server defaults ``location`` to worldwide
-    and ``include_headline_search`` to ``False`` when omitted.
+    and ``include_headline_search`` to ``False`` when omitted. The ``cascade`` list is
+    capped at **10 tiers**, and each tier at 50 title phrases.
     """
 
     include_title: list[str]
@@ -209,26 +267,38 @@ class JobFilter(TypedDict, total=False):
     date_posted: DatePostedFilter
 
 
-class TamJobFilter(TypedDict, total=False):
-    """Job criteria for ``company.tam_by_jobs`` — the same fields as ``JobFilter`` plus a
+class TamJobFilter(JobFilter, total=False):
+    """Job criteria for ``company.tam_by_jobs`` — every ``JobFilter`` field plus a
     per-company floor.
 
-    Defined as a standalone ``TypedDict`` (this SDK's flat-``TypedDict`` convention, no
-    inheritance) so the shared ``JobFilter`` used by ``jobs.search`` / ``jobs.company`` —
-    which have no such field — never gains ``min_per_company``.
+    Extends ``JobFilter`` rather than restating it, so the shared job criteria can never
+    drift between the two. Inheriting cannot add ``min_per_company`` to ``JobFilter``
+    itself, so a ``jobs.search`` / ``jobs.company`` call site that passes a *dict literal*
+    carrying it is still rejected. A **declared** ``TamJobFilter`` variable is accepted
+    there either way — TypedDict assignability is structural, so the older flat copy never
+    bought that protection either. See ``docs/CONTEXT.md`` §5 for the measurement.
     """
 
-    title: KeywordFilter
-    description: KeywordFilter
-    ai_keywords: KeywordFilter  # Broad theme search across title, description, taxonomies.
-    field: KeywordFilter  # Professional field or discipline. Free-form — any label.
-    seniority: SeniorityFilter
-    employment_type: EmploymentTypeFilter
-    work_arrangement: WorkArrangementFilter
-    location: JobLocationFilter
-    date_posted: DatePostedFilter
     # Only include companies with at least this many matching job postings (integer,
     # 0-25; ``0`` = unset). Raises the bar for what counts as a hit when building a TAM.
+    min_per_company: int
+
+
+class TamPeopleFilter(PeopleFilter, total=False):
+    """People criteria for ``company.tam_by_people`` — every :class:`PeopleFilter` field
+    plus ``linkedin_url`` and a per-company floor.
+
+    Extends ``PeopleFilter`` for the same reason as :class:`TamJobFilter`, and because
+    the API documents this endpoint as taking *the same input as Find People*: sharing
+    the base is what keeps that true as the persona filters evolve.
+    """
+
+    # Match specific people by LinkedIn URL. Still honoured here (unlike on
+    # ``search.people``). Capped at 50 entries like every other filter list.
+    linkedin_url: list[str]
+    # Only return companies with at least this many matching current employees (integer,
+    # 0-25; ``0`` = unset). When it filters heavily a page may come back partial — keep
+    # paging until ``cursor`` is ``None``.
     min_per_company: int
 
 

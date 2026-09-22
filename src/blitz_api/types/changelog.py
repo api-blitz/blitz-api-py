@@ -8,11 +8,9 @@ pipeline can validate; the resource method unwraps it to a plain
 
 from __future__ import annotations
 
-from typing import Any
+from pydantic import RootModel
 
-from pydantic import RootModel, field_validator
-
-from ._models import BlitzModel
+from ._models import BlitzList, BlitzModel
 
 __all__ = [
     "ChangelogLink",
@@ -42,15 +40,8 @@ class ChangelogEntry(BlitzModel):
     type: str | None = None
     title: str | None = None
     body: str | None = None
-    affected_endpoints: list[str] = []
-    links: list[ChangelogLink] = []
-
-    @field_validator("affected_endpoints", "links", mode="before")
-    @classmethod
-    def _null_list_to_empty(cls, value: Any) -> Any:
-        # The API returns ``null`` (not ``[]``) for an empty list; coerce to ``[]``
-        # so these fields are always iterable — matching the TS SDK's `blitzList`.
-        return [] if value is None else value
+    affected_endpoints: BlitzList[str] = []
+    links: BlitzList[ChangelogLink] = []
 
 
 #: The ``changelog.list`` payload: a top-level array of entries. ``changelog.list``

@@ -12,15 +12,18 @@ from blitz_api.types import (
     CompanyEnrichmentResponse,
     CurrentDateResponse,
     DomainToLinkedinResponse,
+    Education,
     EmailEnrichmentResponse,
     EmailToPersonResponse,
     Job,
     KeyInfo,
     LinkedinToDomainResponse,
     Person,
+    PersonEnrichmentResponse,
     PhoneEnrichmentResponse,
     PhoneToPersonResponse,
     TamByJobsMatch,
+    TamByPeopleMatch,
     WaterfallIcpResponse,
 )
 from tests import data
@@ -83,14 +86,34 @@ def test_people_search_parses_nested_person() -> None:
     assert person.full_name == "Beulah Lee"
     assert person.location is not None
     assert person.location.country_code == "US"
+    assert person.location.postal_code == "94089"
+    assert person.location.street_address == "1600 Amphitheatre Parkway"
+    # A multi-entry ``experiences[]`` parses in payload order. How many positions the
+    # API puts there is an endpoint concern, not a model one — see ``Person.experiences``.
+    assert [e.company_name for e in person.experiences] == ["Google", "Stripe"]
     exp = person.experiences[0]
-    assert exp.company_name == "Google"
     assert exp.job_location is not None
     assert exp.job_location.city == "Sunnyvale"
-    assert person.education[0].degree == "Bachelor's degree"
+    assert exp.job_contract_type == "Full-time"
+    assert exp.job_work_arrangement == "Hybrid"
+    # The field of study is folded into ``degree``; there is no ``field_of_study``.
+    assert person.education[0].degree == "Bachelor of Science, Computer Science"
     assert person.education[0].school_name == "Stanford University"
-    assert person.education[0].field_of_study == "Computer Science"
+    # Asserted against the model, not the fixture: ``extra="allow"`` means a ``hasattr``
+    # check would pass merely because this payload omits the key, and would fail (by
+    # design) the day the API sends a stray one.
+    assert "field_of_study" not in Education.model_fields
     assert person.certifications[0].authority == "Google"
+    # Kept on the model, but the API always sends null now.
+    assert person.profile_picture_url is None
+
+
+def test_person_coerces_null_lists_to_empty() -> None:
+    person = Person.model_validate(data.PERSON_NULL_LISTS)
+    assert person.experiences == []
+    assert person.education == []
+    assert person.skills == []
+    assert person.certifications == []
 
 
 def test_company_search_parses() -> None:
@@ -101,6 +124,13 @@ def test_company_search_parses() -> None:
     assert company.hq is not None
     assert company.hq.region == "NORAM"
     assert company.specialties == ["search", "cloud"]
+
+
+def test_company_coerces_null_lists_to_empty() -> None:
+    # ``specialties`` is the only nullable list on the model, so the caller never
+    # needs a ``None`` guard.
+    company = Company.model_validate(data.COMPANY_NULL_LISTS)
+    assert company.specialties == []
 
 
 def test_employee_finder_is_page_paginated() -> None:
@@ -127,6 +157,30 @@ def test_company_jobs_parses() -> None:
     resp = CursorPage[Job].model_validate(data.COMPANY_JOBS)
     assert resp.total_results == 37
     assert resp.results[0].company_linkedin_url == "https://www.linkedin.com/company/openai"
+
+
+def test_person_enrichment_parses() -> None:
+    resp = PersonEnrichmentResponse.model_validate(data.PERSON_ENRICHMENT)
+    assert resp.found is True
+    assert resp.person is not None
+    assert resp.person.full_name == "Beulah Lee"
+    assert len(resp.person.experiences) == 2
+    assert resp.fair_usage is not None
+    assert resp.fair_usage.records_used == 3
+
+
+def test_tam_by_people_match_parses() -> None:
+    match = TamByPeopleMatch.model_validate(data.TAM_BY_PEOPLE["results"][0])
+    assert match.matched_people == 27
+    assert match.company is not None
+    assert match.company.name == "Google"
+
+
+def test_tam_by_people_page_parses_without_total_results() -> None:
+    resp = CursorPage[TamByPeopleMatch].model_validate(data.TAM_BY_PEOPLE)
+    assert resp.results[0].matched_people == 27
+    assert resp.cursor == "example_cursor_tam_people_p2"
+    assert resp.total_results is None
 
 
 def test_tam_by_jobs_match_parses() -> None:

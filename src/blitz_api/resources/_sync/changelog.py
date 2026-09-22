@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ..._compat import TimeoutParam
 from ...types.changelog import ChangelogEntry, ChangelogResponse
@@ -12,13 +12,10 @@ from ...types.changelog import ChangelogEntry, ChangelogResponse
 if TYPE_CHECKING:
     from ..._client import BlitzAPI
 
-# Public endpoint: NO ``/v2`` prefix, and the trailing slash is load-bearing.
+# Public endpoint: NO ``/v2`` prefix. The trailing slash is what the spec declares;
+# the API also answers ``/changelog`` (re-verified 2026-09-22 — both 200, no redirect),
+# so it is not load-bearing, but keep it to match the spec.
 _CHANGELOG = "/changelog/"
-
-
-def _drop_none(**kwargs: Any) -> dict[str, Any]:
-    """Build a query-param mapping keeping only the arguments the caller provided."""
-    return {key: value for key, value in kwargs.items() if value is not None}
 
 
 class ChangelogResource:
@@ -43,7 +40,7 @@ class ChangelogResource:
         **not paginated**: it returns a plain list filtered by the ``days`` / ``limit``
         query parameters.
         """
-        params = _drop_none(days=days, limit=limit)
+        params = {"days": days, "limit": limit}
         result = self._client._request(
             "GET",
             _CHANGELOG,

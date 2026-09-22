@@ -22,6 +22,7 @@ from blitz_api.types import (
     JobLevel,
     KeyInfo,
     LastFundingType,
+    PersonEnrichmentResponse,
     Seniority,
     WaterfallIcpResponse,
     WorkArrangement,
@@ -50,6 +51,34 @@ def test_key_info_get(httpx_mock: HTTPXMock) -> None:
     assert request is not None
     assert request.method == "GET"
     assert request.headers["x-api-key"] == TEST_KEY
+
+
+def test_enrichment_person_post_body(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/enrichment/person"), method="POST", json=data.PERSON_ENRICHMENT
+    )
+    result = _client().enrichment.person(person_linkedin_url="https://www.linkedin.com/in/example")
+
+    assert isinstance(result, PersonEnrichmentResponse)
+    assert result.found is True
+    assert result.person is not None
+    assert result.person.full_name == "Beulah Lee"
+    # The whole career, not just the current position.
+    assert len(result.person.experiences) == 2
+    assert _sent_body(httpx_mock) == {"person_linkedin_url": "https://www.linkedin.com/in/example"}
+
+
+async def test_async_enrichment_person(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/enrichment/person"), method="POST", json=data.PERSON_ENRICHMENT
+    )
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        result = await client.enrichment.person(
+            person_linkedin_url="https://www.linkedin.com/in/example"
+        )
+    assert isinstance(result, PersonEnrichmentResponse)
+    assert result.person is not None
+    assert result.person.full_name == "Beulah Lee"
 
 
 def test_enrichment_email_post_body(httpx_mock: HTTPXMock) -> None:
@@ -82,7 +111,7 @@ def test_search_people_serializes_enums_and_drops_none(httpx_mock: HTTPXMock) ->
         people={
             "job_level": [JobLevel.VP],
             "job_title": {"include": ["Engineer"]},
-            "linkedin_url": ["https://www.linkedin.com/in/example"],
+            "min_connections": 200,
         },
         max_results=5,
     )
@@ -94,7 +123,7 @@ def test_search_people_serializes_enums_and_drops_none(httpx_mock: HTTPXMock) ->
         "people": {
             "job_level": ["VP"],
             "job_title": {"include": ["Engineer"]},
-            "linkedin_url": ["https://www.linkedin.com/in/example"],
+            "min_connections": 200,
         },
         "max_results": 5,
     }
@@ -124,6 +153,32 @@ def test_search_people_serializes_funding_and_hq_state_filters(httpx_mock: HTTPX
             "hq": {"state": {"include": ["California"]}, "country_code": ["US"]},
         },
         "max_results": 5,
+    }
+
+
+def test_search_people_serializes_company_linkedin_url(httpx_mock: HTTPXMock) -> None:
+    # ``company.linkedin_url`` is honoured here (and on company.tam_by_people), but not on
+    # search.companies — hence the PeopleCompanyFilter split.
+    httpx_mock.add_response(url=url("/v2/search/people"), method="POST", json=data.PEOPLE_SEARCH)
+    _client().search.people(
+        company={"linkedin_url": ["https://www.linkedin.com/company/openai"]},
+        people={"job_level": [JobLevel.VP]},
+    )
+    assert _sent_body(httpx_mock) == {
+        "company": {"linkedin_url": ["https://www.linkedin.com/company/openai"]},
+        "people": {"job_level": ["VP"]},
+    }
+
+
+async def test_async_search_people_serializes_company_linkedin_url(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(url=url("/v2/search/people"), method="POST", json=data.PEOPLE_SEARCH)
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        result = await client.search.people(
+            company={"linkedin_url": ["https://www.linkedin.com/company/openai"]},
+        )
+    assert isinstance(result, AsyncCursorPage)
+    assert _sent_body(httpx_mock) == {
+        "company": {"linkedin_url": ["https://www.linkedin.com/company/openai"]},
     }
 
 
@@ -257,6 +312,49 @@ async def test_async_company_tam_by_jobs(httpx_mock: HTTPXMock) -> None:
     assert result.results[0].matched_jobs == 7
 
 
+def test_company_tam_by_people_serializes_min_per_company(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/company/tam-by-people"), method="POST", json=data.TAM_BY_PEOPLE
+    )
+    result = _client().company.tam_by_people(
+        company={"industry": {"include": [Industry.SOFTWARE_DEVELOPMENT]}},
+        people={
+            "job_level": [JobLevel.VP],
+            "job_function": [JobFunction.SALES_BUSINESS_DEVELOPMENT],
+            "linkedin_url": ["https://www.linkedin.com/in/example"],
+            "min_per_company": 5,
+        },
+        max_results=10,
+    )
+
+    assert isinstance(result, CursorPage)
+    assert result.results[0].matched_people == 27
+    assert result.results[0].company is not None
+    assert result.results[0].company.name == "Google"
+    body = _sent_body(httpx_mock)
+    assert body == {
+        "company": {"industry": {"include": ["Software Development"]}},
+        "people": {
+            "job_level": ["VP"],
+            "job_function": ["Sales & Business Development"],
+            "linkedin_url": ["https://www.linkedin.com/in/example"],
+            "min_per_company": 5,
+        },
+        "max_results": 10,
+    }
+    assert "cursor" not in body  # None args are omitted
+
+
+async def test_async_company_tam_by_people(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/company/tam-by-people"), method="POST", json=data.TAM_BY_PEOPLE
+    )
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        result = await client.company.tam_by_people(people={"min_per_company": 5})
+    assert isinstance(result, AsyncCursorPage)
+    assert result.results[0].matched_people == 27
+
+
 def test_changelog_list_public_get_with_query_params(httpx_mock: HTTPXMock) -> None:
     # Matched by method only: the request URL carries a query string, asserted below.
     httpx_mock.add_response(method="GET", json=data.CHANGELOG)
@@ -282,6 +380,16 @@ def test_changelog_list_omits_absent_query_params(httpx_mock: HTTPXMock) -> None
     request = httpx_mock.get_request()
     assert request is not None
     assert request.url.query == b""
+
+
+def test_changelog_list_drops_only_the_unset_query_param(httpx_mock: HTTPXMock) -> None:
+    # The mixed case, which the both-unset test above cannot catch: the client strips
+    # ``None`` params, so an unset one is absent rather than sent as an empty ``limit=``.
+    httpx_mock.add_response(method="GET", json=data.CHANGELOG)
+    _client().changelog.list(days=7)
+    request = httpx_mock.get_request()
+    assert request is not None
+    assert request.url.query == b"days=7"
 
 
 async def test_async_changelog_list(httpx_mock: HTTPXMock) -> None:

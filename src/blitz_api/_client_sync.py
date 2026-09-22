@@ -95,7 +95,11 @@ class BlitzAPI(BaseClient):
     ) -> ResponseT:
         url = self._build_url(path)
         headers = self._build_headers()
+        # ``to_jsonable`` resolves enums and drops ``None`` at every depth, so resources
+        # build their body/params straight from their keyword arguments and never filter.
+        # Params need it as much as bodies do: httpx renders ``days=None`` as ``days=``.
         json_body = to_jsonable(body) if body is not None else None
+        query_params = to_jsonable(params) if params is not None else None
 
         attempt = 0
         while True:
@@ -103,11 +107,16 @@ class BlitzAPI(BaseClient):
             try:
                 if timeout is None:
                     response = self._http_client.request(
-                        method, url, headers=headers, json=json_body, params=params
+                        method, url, headers=headers, json=json_body, params=query_params
                     )
                 else:
                     response = self._http_client.request(
-                        method, url, headers=headers, json=json_body, params=params, timeout=timeout
+                        method,
+                        url,
+                        headers=headers,
+                        json=json_body,
+                        params=query_params,
+                        timeout=timeout,
                     )
             except httpx.TimeoutException as exc:
                 if self._should_retry_exception(exc) and attempt < self.max_retries:

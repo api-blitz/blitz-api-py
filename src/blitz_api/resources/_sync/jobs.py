@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ..._compat import TimeoutParam
 from ..._pagination_sync import CursorPage
@@ -16,11 +16,6 @@ if TYPE_CHECKING:
 
 _SEARCH = "/v2/jobs/search"
 _COMPANY = "/v2/jobs/company"
-
-
-def _drop_none(**kwargs: Any) -> dict[str, Any]:
-    """Build a request body keeping only the arguments the caller provided."""
-    return {key: value for key, value in kwargs.items() if value is not None}
 
 
 class JobsResource:
@@ -42,7 +37,7 @@ class JobsResource:
         Auto-paginates over every matching job when the result is iterated; use
         ``.iter_pages()`` or the ``cursor=`` arg for manual control.
         """
-        body = _drop_none(job=job, company=company, max_results=max_results, cursor=cursor)
+        body = {"job": job, "company": company, "max_results": max_results, "cursor": cursor}
         return self._client._request(
             "POST", _SEARCH, body=body, cast_to=CursorPage[Job], timeout=timeout
         )
@@ -61,12 +56,12 @@ class JobsResource:
         Auto-paginates over every matching job; use ``.iter_pages()`` or ``cursor=``
         for manual control.
         """
-        body = _drop_none(
-            company_linkedin_url=company_linkedin_url,
-            job=job,
-            max_results=max_results,
-            cursor=cursor,
-        )
+        body = {
+            "company_linkedin_url": company_linkedin_url,
+            "job": job,
+            "max_results": max_results,
+            "cursor": cursor,
+        }
         return self._client._request(
             "POST", _COMPANY, body=body, cast_to=CursorPage[Job], timeout=timeout
         )

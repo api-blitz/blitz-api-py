@@ -131,12 +131,31 @@ later are preserved):
 ```python
 Person(
     full_name="Jordan Lee",
-    headline="VP of Engineering at Acme",
+    # Derived from the first position as "<job title> | @<employer>" — not the
+    # free-text headline written on the LinkedIn profile.
+    headline="VP of Engineering | @Acme",
     linkedin_url="https://www.linkedin.com/in/example-person",
     location=Location(city="San Francisco", state_code="CA", country_code="US", continent="North America"),
+    # Positions from the profile, in profile order — read `job_is_current` for the
+    # current role rather than assuming index 0.
     experiences=[Experience(job_title="VP of Engineering", company_name="Acme", job_is_current=True)],
     # first_name, last_name, skills, education, certifications, … also present
 )
+```
+
+**How many positions land in `experiences[]` depends on the endpoint** — and upstream
+currently contradicts itself for `search.people`: the changelog entry of 2026-09-21 says
+it returns only the position that matched your filters, while the API reference still
+says it returns the full position history. Don't rely on either from a search result. If
+you need the person's whole career in profile order, `enrichment.person` returns it
+unambiguously (1 record on success, free on a miss):
+
+```python
+if person.linkedin_url:  # optional on Person; the call requires a str
+    result = client.enrichment.person(person_linkedin_url=person.linkedin_url)
+    if result.found and result.person:
+        for exp in result.person.experiences:  # every position held, in profile order
+            print(exp.job_title, exp.company_name, exp.job_is_current)
 ```
 
 And `enrichment.email(...)` returns:
@@ -170,8 +189,8 @@ All methods are grouped into seven namespaces:
 | `client.account` | `key_info()` |
 | `client.search` | `people()`, `companies()`, `employee_finder()`, `waterfall_icp()` |
 | `client.jobs` | `search()`, `company()` |
-| `client.company` | `tam_by_jobs()` |
-| `client.enrichment` | `email()`, `phone()`, `email_to_person()`, `phone_to_person()`, `company()`, `domain_to_linkedin()`, `linkedin_to_domain()`, `company_distribution_by_country()`, `company_distribution_by_department()` |
+| `client.company` | `tam_by_jobs()`, `tam_by_people()` |
+| `client.enrichment` | `person()`, `email()`, `phone()`, `email_to_person()`, `phone_to_person()`, `company()`, `domain_to_linkedin()`, `linkedin_to_domain()`, `company_distribution_by_country()`, `company_distribution_by_department()` |
 | `client.utils` | `current_date()` |
 | `client.changelog` | `list()` |
 
@@ -181,10 +200,10 @@ member or a raw string.
 
 ## Pagination
 
-The search and jobs methods return an **auto-paginating page**: iterate it and the SDK
-fetches each subsequent page for you. `search.people`/`search.companies` and
-`jobs.search`/`jobs.company` are cursor-based; `search.employee_finder` is page-based —
-all behave identically here.
+The search, jobs and TAM methods return an **auto-paginating page**: iterate it and the
+SDK fetches each subsequent page for you. `search.people`/`search.companies`,
+`jobs.search`/`jobs.company` and `company.tam_by_jobs`/`company.tam_by_people` are
+cursor-based; `search.employee_finder` is page-based — all behave identically here.
 
 > **`max_results` is the page size, not a total.** It's results per page, and the API
 > **bills 1 record per result returned**. A bare `for person in client.search.people(...)`
@@ -216,6 +235,13 @@ for job in client.jobs.search(
     company={"industry": {"include": ["Software Development"]}, "size": {"include": ["51-200"]}},
 ).auto_paging_iter(max_items=200):
     print(job.company_name, job.title, job.location.city if job.location else None)
+
+# The TAM builders page the same way — distinct companies, each with its match count.
+for match in client.company.tam_by_people(
+    company={"industry": {"include": ["Software Development"]}},
+    people={"job_level": ["VP"], "min_per_company": 3},
+).auto_paging_iter(max_items=200):
+    print(match.company.name if match.company else None, match.matched_people)
 
 # Or page manually.
 page = client.search.people(people={...}, max_results=50)
@@ -272,11 +298,13 @@ client = BlitzAPI(
 The client-side rate limiter is a sliding window — at most `rate_limit_rps` requests
 in any rolling second — applied **per endpoint**: each endpoint (e.g. `.email` vs
 `.phone`) is throttled independently, mirroring the API's own limit, which is also per
-endpoint (5 req/s by default; check yours via
-`client.account.key_info().max_requests_per_seconds`). A single client instance therefore
-stays under the limit on every endpoint, so a burst on one never blocks another. Across
-multiple processes — which share an endpoint's budget — you may still hit `429`; the retry
-path handles that.
+endpoint (10 req/s on every plan — 50 on plans created before 2026-09-30; check yours
+via `client.account.key_info().max_requests_per_seconds`). The default `5.0`
+deliberately sits at half the *lowest* cap — raise it to your key's limit to use the
+full budget. A single
+client instance therefore stays under the limit on every endpoint, so a burst on one
+never blocks another. Across multiple processes — which share an endpoint's budget — you
+may still hit `429`; the retry path handles that.
 
 Every method also accepts a per-call `timeout` (seconds or an `httpx.Timeout`) when one
 endpoint needs longer than the client default:

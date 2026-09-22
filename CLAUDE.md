@@ -20,9 +20,15 @@ and step-by-step playbooks). This file is just the quick rules.
   everything under `src/blitz_api/resources/_sync/` are generated from the async source
   (`_client_async.py`, `resources/_async/`) by `uv run python scripts/gen_sync.py`. Edit
   the async file, regenerate, commit both. CI fails if stale (`gen_sync.py --check`).
-- **Responses are hand-written models, not generated.** The Blitz OpenAPI spec types
-  requests richly but its response schemas are *example-only* (no properties), so a
-  generator can't produce typed responses. Derive response models from examples.
+- **Responses are hand-written models, but the spec — not an example — is the source of
+  truth.** This used to say response schemas were example-only; that is no longer true and
+  following it produced three phantom `Company` fields. The live spec now publishes real
+  response `properties` on 20 of the 21 endpoints (only `GET /changelog/` is still
+  example-only), and **every** response object schema is `additionalProperties: false` (236
+  of 236). So the spec's key set is *exhaustive*: a field absent from it is not "maybe
+  undocumented", it provably cannot be returned. Before adding or keeping a response field,
+  check it against the live spec — never against a fixture in `tests/data.py`, which proves
+  only that you wrote the fixture. Audit playbook in `docs/CONTEXT.md` §10.
 - **All response models subclass `BlitzModel`** (`extra="allow"`) so unknown/new API
   fields never break deserialization. Reuse the shared models in `types/shared.py`
   (one superset model with `Optional` fields, not per-endpoint duplicates).
@@ -46,7 +52,7 @@ and step-by-step playbooks). This file is just the quick rules.
   (generated). Sleep/timeout type aliases live in `_compat.py`.
 - Types: `src/blitz_api/types/` (`shared.py`, `<group>.py` responses, `filters.py`
   request TypedDicts, `enums.py` generated).
-- Pagination: `search.*` and `jobs.*` return auto-paging page objects (`CursorPage[T]`,
+- Pagination: `search.*`, `jobs.*` and `company.*` return auto-paging page objects (`CursorPage[T]`,
   `PageNumberPage[T]`, `Async*` twins; exported from `blitz_api`). Iteration is written in
   `_pagination_async.py` (gen_sync'd → `_pagination_sync.py`); shared state in
   `_pagination_base.py`. Edit the async source, never the sync.
