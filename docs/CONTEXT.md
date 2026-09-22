@@ -856,6 +856,24 @@ the history rather than re-litigating it.
   time: every response object schema is `additionalProperties: false`, so this audit is
   decisive rather than suggestive, and it is cheap to re-run — the throwaway script just
   walks `properties` against `model_fields` / `get_type_hints`.
-  Mirror **(1)**, **(2)**, **(3)**, **(5)** and **(6)** in `blitz-api-js` — and re-run
-  **(7)** there: check whether the JS `Company` picked up the same three phantom fields and
-  whether its `HQ` carries `postcode`/`street`.
+  **Mirrored in `blitz-api-js` by [PR #23](https://github.com/api-blitz/blitz-api-js/pull/23)**
+  (`sync-sdk-with-openapi-spec`, open alongside this one) — not a prose-only follow-up. It
+  lands **(1)**, **(2)**, **(3)**, **(5)** and **(6)**, and re-runs **(7)**: the JS `Company`
+  had picked up the same three phantom fields (removed there too) and its `HQ` keeps
+  `postcode`/`street` on the same reasoning as §7. Land the two together; until both merge,
+  `blitz-api-js@main` still exposes `PeopleFilter.linkedin_url` and `Education.field_of_study`.
+
+  **Two deliberate divergences to resolve before merging** — the SDKs disagree, so one side
+  is wrong:
+
+  1. **`Company.specialties`.** Both PRs cite the same spec fact (`array | null`) and draw
+     opposite conclusions: this PR coerces `null` → `[]` (making the `BlitzList` rule
+     exhaustive), while JS pins `specialties` as the *one* list that stays `null`, with a test
+     asserting `toBeNull()` and a documented carve-out ("use plain `.nullish()` only for a list
+     the API documents as genuinely nullable"). Pick one convention and apply it to both.
+  2. **`CompanyFilter.linkedin_url` (this SDK is the stale one).** The live spec has
+     `linkedin_url` on the company filter of `/v2/search/people` and `/v2/company/tam-by-people`
+     but **not** `/v2/search/companies`; request schemas are open, so `search.companies` accepts
+     and silently ignores it — the worst failure mode. JS PR #23 splits it into
+     `PeopleCompanyFilter extends CompanyFilter` to make that a compile error. This SDK still
+     carries `linkedin_url` on the shared `CompanyFilter`, so the split is unported.
