@@ -134,7 +134,8 @@ Person(
     headline="VP of Engineering at Acme",
     linkedin_url="https://www.linkedin.com/in/example-person",
     location=Location(city="San Francisco", state_code="CA", country_code="US", continent="North America"),
-    # Every position the person has held, in profile order.
+    # Positions from the profile, in profile order — read `job_is_current` for the
+    # current role rather than assuming index 0.
     experiences=[Experience(job_title="VP of Engineering", company_name="Acme", job_is_current=True)],
     # first_name, last_name, skills, education, certifications, … also present
 )

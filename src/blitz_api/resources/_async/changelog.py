@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ..._compat import TimeoutParam
 from ...types.changelog import ChangelogEntry, ChangelogResponse
@@ -12,11 +12,6 @@ if TYPE_CHECKING:
 
 # Public endpoint: NO ``/v2`` prefix, and the trailing slash is load-bearing.
 _CHANGELOG = "/changelog/"
-
-
-def _drop_none(**kwargs: Any) -> dict[str, Any]:
-    """Build a query-param mapping keeping only the arguments the caller provided."""
-    return {key: value for key, value in kwargs.items() if value is not None}
 
 
 class AsyncChangelogResource:
@@ -41,7 +36,7 @@ class AsyncChangelogResource:
         **not paginated**: it returns a plain list filtered by the ``days`` / ``limit``
         query parameters.
         """
-        params = _drop_none(days=days, limit=limit)
+        params = {"days": days, "limit": limit}
         result = await self._client._request(
             "GET",
             _CHANGELOG,

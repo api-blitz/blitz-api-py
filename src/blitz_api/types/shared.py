@@ -1,9 +1,12 @@
 """Response models shared across multiple Blitz API endpoints.
 
 These mirror the JSON the API returns. Field shapes vary slightly between
-endpoints (e.g. ``Experience.company_name`` is only populated by people search,
-``HQ.postcode``/``street`` only by company enrichment), so divergent fields are
-modeled as ``Optional`` on a single superset type rather than duplicated.
+endpoints — e.g. ``Location`` carries ``continent``/``postal_code``/``street_address``
+on a person but not on an ``Experience.job_location`` — so divergent fields are modeled
+as ``Optional`` on a single superset type rather than duplicated.
+
+Audited field-by-field against the live spec on 2026-09-22; every field here is one the
+spec returns, except the two flagged on :class:`HQ`.
 """
 
 from __future__ import annotations
@@ -17,7 +20,6 @@ __all__ = [
     "Certification",
     "Person",
     "HQ",
-    "EmployeeGrowth",
     "Company",
 ]
 
@@ -94,7 +96,12 @@ class Person(BlitzModel):
     connections_count: int | None = None
     #: Always ``None`` since 2026-09-15; the API keeps the key so clients don't break.
     profile_picture_url: str | None = None
-    #: Every position the person has held, in profile order.
+    #: Positions from the person's profile, in profile order. **How many** positions land
+    #: here depends on the endpoint, and upstream currently contradicts itself for
+    #: ``search.people``: the changelog entry of 2026-09-21 says it returns only the
+    #: position that matched your filters, while the docs still say the whole career.
+    #: ``enrichment.person`` returns the whole career either way. Read ``job_is_current``
+    #: rather than assuming index 0 is the current role.
     experiences: BlitzList[Experience] = []
     education: BlitzList[Education] = []
     skills: BlitzList[str] = []
@@ -104,25 +111,26 @@ class Person(BlitzModel):
 class HQ(BlitzModel):
     """A company's headquarters location.
 
-    Company enrichment returns ``postcode`` and ``street`` in addition to the
-    fields company search returns; both are optional here.
+    .. warning::
+       ``postcode`` and ``street`` are **unverified**. They predate the spec publishing
+       real response properties, and the live spec now types every ``hq`` object — on
+       ``search.companies``, ``enrichment.company`` and both TAM builders alike — with
+       exactly the six other fields, ``additionalProperties: false`` and all six
+       ``required``. A closed schema cannot carry them, so they read ``None`` on every
+       response. Kept pending confirmation from the API owner; see ``docs/CONTEXT.md``
+       §7. Do not add fields here without checking the live spec first.
     """
 
     city: str | None = None
     state: str | None = None
-    postcode: str | None = None
     country_code: str | None = None
     country_name: str | None = None
     region: str | None = None
     continent: str | None = None
+    #: Unverified — see the class warning.
+    postcode: str | None = None
+    #: Unverified — see the class warning.
     street: str | None = None
-
-
-class EmployeeGrowth(BlitzModel):
-    """Headcount growth over one window, e.g. ``{percentage: 12.5, timespan: "1 year"}``."""
-
-    percentage: float | None = None
-    timespan: str | None = None
 
 
 class Company(BlitzModel):
@@ -132,7 +140,7 @@ class Company(BlitzModel):
     linkedin_id: int | None = None
     name: str | None = None
     about: str | None = None
-    specialties: list[str] | None = None
+    specialties: BlitzList[str] = []
     industry: str | None = None
     type: str | None = None
     size: str | None = None
@@ -142,9 +150,3 @@ class Company(BlitzModel):
     hq: HQ | None = None
     domain: str | None = None
     website: str | None = None
-    #: The company's tagline, as shown on its LinkedIn page.
-    slogan: str | None = None
-    #: Estimated annual revenue in USD.
-    revenue: float | None = None
-    #: Headcount growth, one entry per reported window.
-    employee_growth: BlitzList[EmployeeGrowth] = []

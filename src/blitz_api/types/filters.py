@@ -57,11 +57,18 @@ class IndustryFilter(TypedDict, total=False):
     """Include/exclude filter over the fixed industry taxonomy.
 
     :attr:`~blitz_api.types.Industry.UNKNOWN` (``"Unknown"``) is a bucket, not a real
-    industry: it matches companies with **no industry on file**. In ``include`` it is
-    added to the industries you list (``["Banking", "Unknown"]`` returns banks *plus*
-    every company with no industry); in ``exclude`` it drops them. Before it existed,
-    reaching those companies meant listing every other industry in ``exclude``, which
-    the 50-entry cap made impossible.
+    industry. In ``include`` it is added to the industries you list (``["Banking",
+    "Unknown"]`` returns banks *plus* the bucket); in ``exclude`` it drops them. Before it
+    existed, reaching those records meant listing every other industry in ``exclude``,
+    which the 50-entry cap made impossible.
+
+    **What lands in the bucket depends on the endpoint** (widened 2026-09-17):
+
+    * ``search.companies`` — companies with no industry on file.
+    * ``search.people`` / ``company.tam_by_people`` — the above, **plus people with no
+      company attached at all**.
+    * ``jobs.search`` / ``company.tam_by_jobs`` (via :class:`JobCompanyFilter`) — the
+      above, **plus job postings with no company attached at all**.
     """
 
     include: list[IndustryValue]
@@ -237,9 +244,12 @@ class TamJobFilter(JobFilter, total=False):
     """Job criteria for ``company.tam_by_jobs`` — every ``JobFilter`` field plus a
     per-company floor.
 
-    Extends ``JobFilter`` rather than restating it. Inheriting cannot add
-    ``min_per_company`` to ``JobFilter`` itself, so ``jobs.search`` / ``jobs.company``
-    keep rejecting it, and the shared job criteria can never drift between the two.
+    Extends ``JobFilter`` rather than restating it, so the shared job criteria can never
+    drift between the two. Inheriting cannot add ``min_per_company`` to ``JobFilter``
+    itself, so a ``jobs.search`` / ``jobs.company`` call site that passes a *dict literal*
+    carrying it is still rejected. A **declared** ``TamJobFilter`` variable is accepted
+    there either way — TypedDict assignability is structural, so the older flat copy never
+    bought that protection either. See ``docs/CONTEXT.md`` §5 for the measurement.
     """
 
     # Only include companies with at least this many matching job postings (integer,

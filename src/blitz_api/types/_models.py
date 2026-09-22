@@ -84,10 +84,15 @@ def _null_to_empty(value: Any) -> Any:
 #: A list field the API may send as ``null`` instead of ``[]``.
 #:
 #: Many list-valued response fields are ``array | null`` in the spec (a person's
-#: ``education`` / ``skills`` / ``certifications``, a company's ``employee_growth``, a
-#: changelog entry's ``affected_endpoints`` / ``links``). A plain ``list[T] = []`` field
-#: *rejects* ``null``, so those payloads would raise. Declaring the field
-#: ``BlitzList[T]`` coerces ``null`` to ``[]`` at parse time, so the attribute is always
-#: iterable — the TS SDK's ``blitzList``, expressed in the type rather than in a
+#: ``education`` / ``skills`` / ``certifications``, a company's ``specialties``), and the
+#: changelog sends ``null`` for an empty ``affected_endpoints`` / ``links``. A plain
+#: ``list[T] = []`` field *rejects* ``null``, so those payloads would raise. Declaring the
+#: field ``BlitzList[T]`` coerces ``null`` to ``[]`` at parse time, so the attribute is
+#: always iterable — the TS SDK's ``blitzList``, expressed in the type rather than in a
 #: separate validator that has to name its fields as strings.
+#:
+#: **Use it for every nullable list**, so a caller never has to remember which lists need
+#: a ``None`` guard. The rule is exhaustive as of 2026-09-22: the remaining plain
+#: ``list[T] = []`` fields (``allowed_apis``, ``active_plans``, ``all_emails``, ``other``,
+#: both ``distribution``s, the waterfall ``results``) are all non-nullable in the spec.
 BlitzList = Annotated[list[_ItemT], BeforeValidator(_null_to_empty)]

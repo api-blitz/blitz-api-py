@@ -12,6 +12,7 @@ from blitz_api.types import (
     CompanyEnrichmentResponse,
     CurrentDateResponse,
     DomainToLinkedinResponse,
+    Education,
     EmailEnrichmentResponse,
     EmailToPersonResponse,
     Job,
@@ -87,7 +88,8 @@ def test_people_search_parses_nested_person() -> None:
     assert person.location.country_code == "US"
     assert person.location.postal_code == "94089"
     assert person.location.street_address == "1600 Amphitheatre Parkway"
-    # ``search.people`` returns the whole career, not just the matching position.
+    # A multi-entry ``experiences[]`` parses in payload order. How many positions the
+    # API puts there is an endpoint concern, not a model one — see ``Person.experiences``.
     assert [e.company_name for e in person.experiences] == ["Google", "Stripe"]
     exp = person.experiences[0]
     assert exp.job_location is not None
@@ -97,7 +99,10 @@ def test_people_search_parses_nested_person() -> None:
     # The field of study is folded into ``degree``; there is no ``field_of_study``.
     assert person.education[0].degree == "Bachelor of Science, Computer Science"
     assert person.education[0].school_name == "Stanford University"
-    assert not hasattr(person.education[0], "field_of_study")
+    # Asserted against the model, not the fixture: ``extra="allow"`` means a ``hasattr``
+    # check would pass merely because this payload omits the key, and would fail (by
+    # design) the day the API sends a stray one.
+    assert "field_of_study" not in Education.model_fields
     assert person.certifications[0].authority == "Google"
     # Kept on the model, but the API always sends null now.
     assert person.profile_picture_url is None
@@ -119,15 +124,13 @@ def test_company_search_parses() -> None:
     assert company.hq is not None
     assert company.hq.region == "NORAM"
     assert company.specialties == ["search", "cloud"]
-    assert company.slogan == "Organize the world's information."
-    assert company.revenue == 307394000000.0
-    assert len(company.employee_growth) == 1
-    assert company.employee_growth[0].percentage == 12.5
-    assert company.employee_growth[0].timespan == "1 year"
 
 
-def test_company_coerces_null_employee_growth_to_empty() -> None:
-    assert Company.model_validate(data.COMPANY_NULL_GROWTH).employee_growth == []
+def test_company_coerces_null_lists_to_empty() -> None:
+    # ``specialties`` is the only nullable list on the model, so the caller never
+    # needs a ``None`` guard.
+    company = Company.model_validate(data.COMPANY_NULL_LISTS)
+    assert company.specialties == []
 
 
 def test_employee_finder_is_page_paginated() -> None:

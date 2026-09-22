@@ -207,27 +207,19 @@ def test_jobs_cursor_guard_aborts_on_non_advancing_cursor(httpx_mock: HTTPXMock)
 
 
 def test_tam_by_jobs_streams_matches_across_pages(httpx_mock: HTTPXMock) -> None:
-    # Self-contained (no data.py fixtures): page 1 returns a cursor; page 2 returns
-    # cursor=null and terminates the walk.
+    # Page 1 returns a cursor; page 2 returns cursor=null and terminates the walk.
+    # No ``total`` — like tam_by_people, this envelope carries no ``total_results``.
     httpx_mock.add_response(
         url=_TAM_BY_JOBS,
         method="POST",
-        json={
-            "results": [{"company": {"name": "TAM One"}, "matched_jobs": 3}],
-            "results_length": 1,
-            "max_results": 1,
-            "cursor": "next-cursor",
-        },
+        json=data.cursor_page(
+            [{"company": {"name": "TAM One"}, "matched_jobs": 3}], cursor="next-cursor"
+        ),
     )
     httpx_mock.add_response(
         url=_TAM_BY_JOBS,
         method="POST",
-        json={
-            "results": [{"company": {"name": "TAM Two"}, "matched_jobs": 5}],
-            "results_length": 1,
-            "max_results": 1,
-            "cursor": None,
-        },
+        json=data.cursor_page([{"company": {"name": "TAM Two"}, "matched_jobs": 5}], cursor=None),
     )
 
     matches = list(_client().company.tam_by_jobs(max_results=1))

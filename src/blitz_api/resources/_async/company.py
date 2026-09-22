@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ..._compat import TimeoutParam
 from ..._pagination_async import AsyncCursorPage
@@ -14,11 +14,6 @@ if TYPE_CHECKING:
 
 _TAM_BY_JOBS = "/v2/company/tam-by-jobs"
 _TAM_BY_PEOPLE = "/v2/company/tam-by-people"
-
-
-def _drop_none(**kwargs: Any) -> dict[str, Any]:
-    """Build a request body keeping only the arguments the caller provided."""
-    return {key: value for key, value in kwargs.items() if value is not None}
 
 
 class AsyncCompanyResource:
@@ -46,7 +41,7 @@ class AsyncCompanyResource:
         control. The API bills **1 record per result returned**; bound spend with
         ``max_items`` on ``.collect()`` / ``.auto_paging_iter()``.
         """
-        body = _drop_none(job=job, company=company, max_results=max_results, cursor=cursor)
+        body = {"job": job, "company": company, "max_results": max_results, "cursor": cursor}
         return await self._client._request(
             "POST",
             _TAM_BY_JOBS,
@@ -79,7 +74,7 @@ class AsyncCompanyResource:
         result returned**; bound spend with ``max_items`` on ``.collect()`` /
         ``.auto_paging_iter()``.
         """
-        body = _drop_none(company=company, people=people, max_results=max_results, cursor=cursor)
+        body = {"company": company, "people": people, "max_results": max_results, "cursor": cursor}
         return await self._client._request(
             "POST",
             _TAM_BY_PEOPLE,

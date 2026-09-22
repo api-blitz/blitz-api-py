@@ -356,6 +356,16 @@ def test_changelog_list_omits_absent_query_params(httpx_mock: HTTPXMock) -> None
     assert request.url.query == b""
 
 
+def test_changelog_list_drops_only_the_unset_query_param(httpx_mock: HTTPXMock) -> None:
+    # The mixed case, which the both-unset test above cannot catch: the client strips
+    # ``None`` params, so an unset one is absent rather than sent as an empty ``limit=``.
+    httpx_mock.add_response(method="GET", json=data.CHANGELOG)
+    _client().changelog.list(days=7)
+    request = httpx_mock.get_request()
+    assert request is not None
+    assert request.url.query == b"days=7"
+
+
 async def test_async_changelog_list(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(method="GET", json=data.CHANGELOG)
     async with AsyncBlitzAPI(api_key="not-a-real-key", rate_limit_rps=None) as client:

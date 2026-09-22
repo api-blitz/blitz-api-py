@@ -74,7 +74,6 @@ from .shared import (
     Certification,
     Company,
     Education,
-    EmployeeGrowth,
     Experience,
     Location,
     Person,
@@ -92,7 +91,6 @@ __all__ = [
     "Location",
     "Company",
     "HQ",
-    "EmployeeGrowth",
     # enums
     "Industry",
     "CompanyType",

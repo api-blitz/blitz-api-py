@@ -8,6 +8,37 @@ from __future__ import annotations
 
 from typing import Any
 
+
+def cursor_page(
+    results: list[Any], *, cursor: str | None, total: int | None = None
+) -> dict[str, Any]:
+    """Build a cursor-paginated envelope around ``results``.
+
+    ``total`` is the endpoint's ``total_results``. Both TAM builders omit that key
+    entirely, so it defaults to ``None`` and is left out rather than sent as null —
+    making "this endpoint reports no total" a visible argument instead of a silent
+    omission a reader has to notice.
+    """
+    page: dict[str, Any] = {} if total is None else {"total_results": total}
+    page["results"] = results
+    page["results_length"] = len(results)
+    page["max_results"] = 1
+    page["cursor"] = cursor
+    return page
+
+
+def number_page(results: list[Any], *, page: int, total_pages: int) -> dict[str, Any]:
+    """Build a page-number envelope — the ``search.employee_finder`` shape."""
+    return {
+        "company_linkedin_url": "https://www.linkedin.com/company/openai",
+        "max_results": 1,
+        "results_length": len(results),
+        "page": page,
+        "total_pages": total_pages,
+        "results": results,
+    }
+
+
 # The ``fair_usage`` envelope every /v2 endpoint returns alongside its payload.
 FAIR_USAGE: dict[str, Any] = {
     "records_used": 3,
@@ -123,9 +154,6 @@ _COMPANY: dict[str, Any] = {
     },
     "domain": "google.com",
     "website": "https://www.google.com",
-    "slogan": "Organize the world's information.",
-    "revenue": 307394000000.0,
-    "employee_growth": [{"percentage": 12.5, "timespan": "1 year"}],
 }
 
 # A person whose optional list fields come back as ``null`` rather than ``[]``.
@@ -137,34 +165,22 @@ PERSON_NULL_LISTS: dict[str, Any] = {
     "certifications": None,
 }
 
-# A company whose ``employee_growth`` comes back as ``null``.
-COMPANY_NULL_GROWTH: dict[str, Any] = {**_COMPANY, "employee_growth": None}
+# A company whose nullable list field comes back as ``null`` rather than ``[]``.
+COMPANY_NULL_LISTS: dict[str, Any] = {
+    **_COMPANY,
+    "specialties": None,
+}
 
 PEOPLE_SEARCH: dict[str, Any] = {
-    "total_results": 14337505,
-    "results": [_PERSON],
-    "results_length": 1,
-    "max_results": 1,
-    "cursor": "example_cursor_people_p2",
+    **cursor_page([_PERSON], cursor="example_cursor_people_p2", total=14337505),
     "fair_usage": FAIR_USAGE,
 }
 
-COMPANY_SEARCH: dict[str, Any] = {
-    "total_results": 100,
-    "results": [_COMPANY],
-    "results_length": 1,
-    "max_results": 1,
-    "cursor": "example_cursor_companies_p2",
-}
+COMPANY_SEARCH: dict[str, Any] = cursor_page(
+    [_COMPANY], cursor="example_cursor_companies_p2", total=100
+)
 
-EMPLOYEE_FINDER: dict[str, Any] = {
-    "company_linkedin_url": "https://www.linkedin.com/company/openai",
-    "max_results": 1,
-    "results_length": 1,
-    "page": 1,
-    "total_pages": 1285,
-    "results": [_PERSON],
-}
+EMPLOYEE_FINDER: dict[str, Any] = number_page([_PERSON], page=1, total_pages=1285)
 
 _JOB: dict[str, Any] = {
     "date_posted": "2026-07-08 23:00:07+02",
@@ -180,21 +196,11 @@ _JOB: dict[str, Any] = {
     "location": {"city": "San Francisco", "country_code": "US"},
 }
 
-JOB_SEARCH: dict[str, Any] = {
-    "total_results": 4821,
-    "results": [_JOB],
-    "results_length": 1,
-    "max_results": 1,
-    "cursor": "example_cursor_jobs_p2",
-}
+JOB_SEARCH: dict[str, Any] = cursor_page([_JOB], cursor="example_cursor_jobs_p2", total=4821)
 
-COMPANY_JOBS: dict[str, Any] = {
-    "total_results": 37,
-    "results": [_JOB],
-    "results_length": 1,
-    "max_results": 1,
-    "cursor": "example_cursor_company_jobs_p2",
-}
+COMPANY_JOBS: dict[str, Any] = cursor_page(
+    [_JOB], cursor="example_cursor_company_jobs_p2", total=37
+)
 
 WATERFALL_ICP: dict[str, Any] = {
     "company_linkedin_url": "https://www.linkedin.com/company/openai",
@@ -286,22 +292,15 @@ DEPARTMENT_DISTRIBUTION: dict[str, Any] = {
 }
 
 # TAM by jobs: each match is a company plus how many of its live postings matched.
-# The envelope carries NO ``total_results`` (the spec omits it for this endpoint).
-TAM_BY_JOBS: dict[str, Any] = {
-    "results": [{"company": _COMPANY, "matched_jobs": 7}],
-    "results_length": 1,
-    "max_results": 1,
-    "cursor": "example_cursor_tam_p2",
-}
+# No ``total`` — the spec omits ``total_results`` for both TAM builders.
+TAM_BY_JOBS: dict[str, Any] = cursor_page(
+    [{"company": _COMPANY, "matched_jobs": 7}], cursor="example_cursor_tam_p2"
+)
 
 # TAM by people: each match is a company plus how many of its employees matched.
-# Same envelope as TAM by jobs — no ``total_results``.
-TAM_BY_PEOPLE: dict[str, Any] = {
-    "results": [{"company": _COMPANY, "matched_people": 27}],
-    "results_length": 1,
-    "max_results": 1,
-    "cursor": "example_cursor_tam_people_p2",
-}
+TAM_BY_PEOPLE: dict[str, Any] = cursor_page(
+    [{"company": _COMPANY, "matched_people": 27}], cursor="example_cursor_tam_people_p2"
+)
 
 # A 402 body: the API attaches the usage block so the caller can see when it resets.
 INSUFFICIENT_RECORDS: dict[str, Any] = {
@@ -334,65 +333,31 @@ CHANGELOG: list[dict[str, Any]] = [
 # --- Multi-page fixtures for pagination tests -------------------------------------
 
 # Cursor-based: page 1 returns a cursor; page 2 returns cursor=null (last page).
-PEOPLE_SEARCH_PAGE1: dict[str, Any] = {
-    "total_results": 2,
-    "results": [{**_PERSON, "full_name": "Person One"}],
-    "results_length": 1,
-    "max_results": 1,
-    "cursor": "next-cursor",
-}
-PEOPLE_SEARCH_PAGE2: dict[str, Any] = {
-    "total_results": 2,
-    "results": [{**_PERSON, "full_name": "Person Two"}],
-    "results_length": 1,
-    "max_results": 1,
-    "cursor": None,
-}
+PEOPLE_SEARCH_PAGE1: dict[str, Any] = cursor_page(
+    [{**_PERSON, "full_name": "Person One"}], cursor="next-cursor", total=2
+)
+PEOPLE_SEARCH_PAGE2: dict[str, Any] = cursor_page(
+    [{**_PERSON, "full_name": "Person Two"}], cursor=None, total=2
+)
 
 # Page-number-based: page 1 of 2, then page 2 of 2 (last page).
-EMPLOYEE_FINDER_PAGE1: dict[str, Any] = {
-    "company_linkedin_url": "https://www.linkedin.com/company/openai",
-    "max_results": 1,
-    "results_length": 1,
-    "page": 1,
-    "total_pages": 2,
-    "results": [{**_PERSON, "full_name": "Employee One"}],
-}
-EMPLOYEE_FINDER_PAGE2: dict[str, Any] = {
-    "company_linkedin_url": "https://www.linkedin.com/company/openai",
-    "max_results": 1,
-    "results_length": 1,
-    "page": 2,
-    "total_pages": 2,
-    "results": [{**_PERSON, "full_name": "Employee Two"}],
-}
+EMPLOYEE_FINDER_PAGE1: dict[str, Any] = number_page(
+    [{**_PERSON, "full_name": "Employee One"}], page=1, total_pages=2
+)
+EMPLOYEE_FINDER_PAGE2: dict[str, Any] = number_page(
+    [{**_PERSON, "full_name": "Employee Two"}], page=2, total_pages=2
+)
 
 # Cursor-based jobs: page 1 returns a cursor; page 2 returns cursor=null (last page).
-JOB_SEARCH_PAGE1: dict[str, Any] = {
-    "total_results": 2,
-    "results": [{**_JOB, "title": "Job One"}],
-    "results_length": 1,
-    "max_results": 1,
-    "cursor": "next-cursor",
-}
-JOB_SEARCH_PAGE2: dict[str, Any] = {
-    "total_results": 2,
-    "results": [{**_JOB, "title": "Job Two"}],
-    "results_length": 1,
-    "max_results": 1,
-    "cursor": None,
-}
+JOB_SEARCH_PAGE1: dict[str, Any] = cursor_page(
+    [{**_JOB, "title": "Job One"}], cursor="next-cursor", total=2
+)
+JOB_SEARCH_PAGE2: dict[str, Any] = cursor_page([{**_JOB, "title": "Job Two"}], cursor=None, total=2)
 
 # Cursor-based TAM by people: page 1 returns a cursor; page 2 ends the walk.
-TAM_BY_PEOPLE_PAGE1: dict[str, Any] = {
-    "results": [{"company": {**_COMPANY, "name": "Company One"}, "matched_people": 27}],
-    "results_length": 1,
-    "max_results": 1,
-    "cursor": "next-cursor",
-}
-TAM_BY_PEOPLE_PAGE2: dict[str, Any] = {
-    "results": [{"company": {**_COMPANY, "name": "Company Two"}, "matched_people": 4}],
-    "results_length": 1,
-    "max_results": 1,
-    "cursor": None,
-}
+TAM_BY_PEOPLE_PAGE1: dict[str, Any] = cursor_page(
+    [{"company": {**_COMPANY, "name": "Company One"}, "matched_people": 27}], cursor="next-cursor"
+)
+TAM_BY_PEOPLE_PAGE2: dict[str, Any] = cursor_page(
+    [{"company": {**_COMPANY, "name": "Company Two"}, "matched_people": 4}], cursor=None
+)
