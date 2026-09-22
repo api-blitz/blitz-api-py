@@ -10,7 +10,9 @@ from ...types.changelog import ChangelogEntry, ChangelogResponse
 if TYPE_CHECKING:
     from ..._client import AsyncBlitzAPI
 
-# Public endpoint: NO ``/v2`` prefix, and the trailing slash is load-bearing.
+# Public endpoint: NO ``/v2`` prefix. The trailing slash is what the spec declares;
+# the API also answers ``/changelog`` (re-verified 2026-09-22 — both 200, no redirect),
+# so it is not load-bearing, but keep it to match the spec.
 _CHANGELOG = "/changelog/"
 
 
