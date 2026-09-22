@@ -120,7 +120,7 @@ class SearchResource:
         """Find the best decision-maker at a company via a prioritized cascade.
 
         ``profile_min_connections`` sets the minimum LinkedIn connections for a match
-        (server defaults to 200 when omitted).
+        (server defaults to ``0`` — i.e. **no** floor — when omitted).
         """
         body = {
             "company_linkedin_url": company_linkedin_url,
