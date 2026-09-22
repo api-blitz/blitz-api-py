@@ -131,7 +131,9 @@ later are preserved):
 ```python
 Person(
     full_name="Jordan Lee",
-    headline="VP of Engineering at Acme",
+    # Derived from the first position as "<job title> | @<employer>" — not the
+    # free-text headline written on the LinkedIn profile.
+    headline="VP of Engineering | @Acme",
     linkedin_url="https://www.linkedin.com/in/example-person",
     location=Location(city="San Francisco", state_code="CA", country_code="US", continent="North America"),
     # Positions from the profile, in profile order — read `job_is_current` for the
@@ -139,6 +141,20 @@ Person(
     experiences=[Experience(job_title="VP of Engineering", company_name="Acme", job_is_current=True)],
     # first_name, last_name, skills, education, certifications, … also present
 )
+```
+
+**How many positions land in `experiences[]` depends on the endpoint** — and upstream
+currently contradicts itself for `search.people`: the changelog entry of 2026-09-21 says
+it returns only the position that matched your filters, while the API reference still
+says it returns the full position history. Don't rely on either from a search result. If
+you need the person's whole career in profile order, `enrichment.person` returns it
+unambiguously (1 record on success, free on a miss):
+
+```python
+result = client.enrichment.person(person_linkedin_url=person.linkedin_url)
+if result.found and result.person:
+    for exp in result.person.experiences:  # every position held, in profile order
+        print(exp.job_title, exp.company_name, exp.job_is_current)
 ```
 
 And `enrichment.email(...)` returns:

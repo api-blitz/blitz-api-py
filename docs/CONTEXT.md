@@ -822,8 +822,21 @@ the history rather than re-litigating it.
   way. Rather than encode a fact two upstream sources disagree on, the SDK now asserts
   neither: `Person.experiences` documents the conflict and points at `job_is_current`, and the
   README comment and model test were reworded to stop claiming a count. `enrichment.person`'s
-  "whole career" wording is **untouched** — that endpoint is uncontested. **Open question for
-  the API owner; resolve and then state it plainly.**
+  "whole career" wording is **untouched** — that endpoint is uncontested.
+  **Re-verified 2026-09-22 (issue #30): the contradiction is still live, and sharper than it
+  looked.** `docs.blitz-api.ai/api-reference/people-search/find-people.md` does not merely
+  omit the change — it explicitly negates it, twice: "Every result carries the person's full
+  position history in `experiences[]`, in profile order, *not just the position that matched
+  your filters*." The live spec still says nothing either way (the `experiences` schema on the
+  `/v2/search/people` response carries no `description`), so there is no tiebreaker. So the
+  SDK keeps asserting neither, and issue #30's suggestion to "tighten `Person.experiences` now
+  that 2026-09-21 is the later statement" was **deliberately not taken** — being later does not
+  beat being explicitly denied by the reference, and this repo has already been burned once by
+  encoding a plausible-but-unsourced fact (see (6) below). What #30 asked for that *is*
+  unambiguous shipped instead: the README now routes a reader who needs the whole career to
+  `enrichment.person`, which is correct under either reading. **Still an open question for the
+  API owner; resolve and then state it plainly.** Note `blitz-api-js` **does** assert the narrow
+  side in its README (PR #23) — a live divergence, filed as an issue on that repo.
   **(5) Smaller fixes.** `TamJobFilter`/`TamPeopleFilter` docstrings claimed inheritance makes
   `jobs.search` / `search.people` "keep rejecting" the extra keys — true for dict literals
   only, as §5's own measurement already records; the clause now says so. The
