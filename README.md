@@ -151,10 +151,11 @@ you need the person's whole career in profile order, `enrichment.person` returns
 unambiguously (1 record on success, free on a miss):
 
 ```python
-result = client.enrichment.person(person_linkedin_url=person.linkedin_url)
-if result.found and result.person:
-    for exp in result.person.experiences:  # every position held, in profile order
-        print(exp.job_title, exp.company_name, exp.job_is_current)
+if person.linkedin_url:  # optional on Person; the call requires a str
+    result = client.enrichment.person(person_linkedin_url=person.linkedin_url)
+    if result.found and result.person:
+        for exp in result.person.experiences:  # every position held, in profile order
+            print(exp.job_title, exp.company_name, exp.job_is_current)
 ```
 
 And `enrichment.email(...)` returns:
