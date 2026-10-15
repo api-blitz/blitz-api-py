@@ -300,6 +300,7 @@ def test_country_distribution_parses() -> None:
     assert resp.distribution[0].percentage_ratio == 72.93
     # Employees whose country couldn't be determined fall in the "unknown" bucket.
     assert resp.distribution[-1].country == "unknown"
+    assert resp.found is True
 
 
 def test_department_distribution_parses() -> None:
@@ -309,6 +310,17 @@ def test_department_distribution_parses() -> None:
     assert resp.distribution[0].count == 320
     assert resp.distribution[0].percentage_ratio == 25.93
     assert resp.distribution[-1].department == "Other"
+    assert resp.found is True
+
+
+def test_distribution_parses_found_false_without_the_other_keys() -> None:
+    # ``found: false`` (unknown company / no current employees, 0 records billed): the
+    # fields the model carries beyond ``found`` stay at their empty defaults.
+    for model in (CompanyDistributionByCountryResponse, CompanyDistributionByDepartmentResponse):
+        resp = model.model_validate({"found": False})
+        assert resp.found is False
+        assert resp.total_employees is None
+        assert resp.distribution == []
 
 
 def test_forward_compatible_unknown_fields_preserved() -> None:

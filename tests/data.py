@@ -272,6 +272,7 @@ CURRENT_DATE: dict[str, Any] = {
 }
 
 COUNTRY_DISTRIBUTION: dict[str, Any] = {
+    "found": True,
     "company_linkedin_url": "https://www.linkedin.com/company/openai",
     "total_employees": 1234,
     "distribution": [
@@ -282,6 +283,7 @@ COUNTRY_DISTRIBUTION: dict[str, Any] = {
 }
 
 DEPARTMENT_DISTRIBUTION: dict[str, Any] = {
+    "found": True,
     "company_linkedin_url": "https://www.linkedin.com/company/openai",
     "total_employees": 1234,
     "distribution": [

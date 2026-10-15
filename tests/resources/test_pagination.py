@@ -41,6 +41,26 @@ def test_cursor_auto_paginates_items(httpx_mock: HTTPXMock) -> None:
     assert json.loads(requests[1].content)["cursor"] == "next-cursor"
 
 
+def test_people_re_sends_top_level_flags_on_every_page(httpx_mock: HTTPXMock) -> None:
+    # ``is_recent_hire`` and the job-scope flags are top-level body fields, so the next page
+    # must carry them forward or page 2 would silently drop the filter.
+    httpx_mock.add_response(url=_PEOPLE, method="POST", json=data.PEOPLE_SEARCH_PAGE1)
+    httpx_mock.add_response(url=_PEOPLE, method="POST", json=data.PEOPLE_SEARCH_PAGE2)
+
+    list(
+        _client().search.people(
+            is_recent_hire=True, include_active_jobs=False, include_past_jobs=True, max_results=1
+        )
+    )
+
+    requests = httpx_mock.get_requests()
+    assert len(requests) == 2
+    flags = {"is_recent_hire": True, "include_active_jobs": False, "include_past_jobs": True}
+    for request in requests:
+        body = json.loads(request.content)
+        assert {k: body[k] for k in flags} == flags
+
+
 def test_cursor_stops_when_cursor_is_null(httpx_mock: HTTPXMock) -> None:
     # Only the first (cursor=null) page is served; iteration must not request more.
     httpx_mock.add_response(url=_PEOPLE, method="POST", json=data.PEOPLE_SEARCH_PAGE2)

@@ -23,6 +23,7 @@ from .enums import (
     JobFunction,
     JobLevel,
     LastFundingType,
+    MxProvider,
     SalesRegion,
     Seniority,
     WorkArrangement,
@@ -37,6 +38,7 @@ IndustryValue = Industry | str
 CompanyTypeValue = CompanyType | str
 EmployeeRangeValue = EmployeeRange | str
 LastFundingTypeValue = LastFundingType | str
+MxProviderValue = MxProvider | str
 ContinentValue = Continent | str
 SalesRegionValue = SalesRegion | str
 JobFunctionValue = JobFunction | str
@@ -89,6 +91,30 @@ class LastFundingTypeFilter(TypedDict, total=False):
     exclude: list[LastFundingTypeValue]
 
 
+class MxProviderFilter(TypedDict, total=False):
+    """Include/exclude filter over the mail provider behind a company's domains.
+
+    :attr:`~blitz_api.types.MxProvider.ANY` (``"any"``) stands for *every* provider. In
+    ``include`` it keeps companies that have MX data at all; in ``exclude`` it keeps
+    companies that have **none**. So ``{"include": ["any"], "exclude": ["google"]}`` means
+    "has MX data, but not on Google".
+    """
+
+    include: list[MxProviderValue]
+    exclude: list[MxProviderValue]
+
+
+class MxFilter(TypedDict, total=False):
+    """Mail-provider criteria, read from the MX records of a company's domains.
+
+    A company matches when **any** of its domains uses the provider. A company with no MX
+    data is never matched by ``include`` and never dropped by ``exclude`` — unless you use
+    :attr:`~blitz_api.types.MxProvider.ANY`.
+    """
+
+    provider: MxProviderFilter
+
+
 class RangeFilter(TypedDict, total=False):
     """Numeric range filter. ``0`` means unset for most fields.
 
@@ -139,6 +165,7 @@ class CompanyFilter(TypedDict, total=False):
     keywords: KeywordFilter
     founded_year: RangeFilter
     hq: CompanyHQFilter
+    mx: MxFilter
 
 
 class PeopleCompanyFilter(CompanyFilter, total=False):
@@ -183,6 +210,19 @@ class PeopleLocationFilter(TypedDict, total=False):
     sales_region: list[SalesRegionValue]
 
 
+class PeopleEducationFilter(KeywordFilter, total=False):
+    """Education filter for the person: phrase include/exclude plus start/end year ranges.
+
+    ``start_year`` and ``end_year`` (graduation year) are :class:`RangeFilter` bounds with
+    ``0`` meaning unset. They apply to the **same education entry** that ``include`` matches,
+    so the school and the year are correlated rather than matched independently. An entry
+    with no such year never matches a bound.
+    """
+
+    start_year: RangeFilter
+    end_year: RangeFilter
+
+
 class PeopleFilter(TypedDict, total=False):
     """People search criteria for ``search.people``.
 
@@ -191,6 +231,10 @@ class PeopleFilter(TypedDict, total=False):
     results for your other criteria instead of the people you asked for). Match specific
     people by LinkedIn URL with ``company.tam_by_people`` (:class:`TamPeopleFilter`),
     which still accepts it.
+
+    ``is_recent_hire`` is deliberately not a key here either: it is a **top-level** argument
+    of ``search.people`` and ``company.tam_by_people``, next to ``max_results`` — not a field
+    of this object. The API rejects unknown fields at any depth with a ``422``.
     """
 
     job_title: PeopleJobTitleFilter
@@ -198,7 +242,7 @@ class PeopleFilter(TypedDict, total=False):
     job_level: list[JobLevelValue]
     min_connections: int
     location: PeopleLocationFilter
-    education: KeywordFilter
+    education: PeopleEducationFilter
 
 
 class CascadeTier(TypedDict):
@@ -256,6 +300,8 @@ class DatePostedFilter(TypedDict):
 class JobFilter(TypedDict, total=False):
     """Job-level search criteria, shared by ``jobs.search`` and ``jobs.company``."""
 
+    # Wrap a phrase in ``[brackets]`` (e.g. ``"[Head of Sales]"``) to match the whole title
+    # exactly, ignoring case and accents; an unbracketed phrase is a tokenized full-text match.
     title: KeywordFilter
     description: KeywordFilter
     ai_keywords: KeywordFilter  # Broad theme search across title, description, taxonomies.
@@ -309,7 +355,12 @@ class CompanySizeFilter(TypedDict, total=False):
 
 
 class JobCompanyHQFilter(TypedDict, total=False):
-    """Headquarters-location filter for the company side of a job search."""
+    """Headquarters-location filter for the company side of a job search.
+
+    ``city`` and ``state`` take the same ``[brackets]`` exact-match syntax as
+    :attr:`JobFilter.title`: ``"[San Francisco]"`` matches the whole value exactly (ignoring
+    case and accents), while an unbracketed phrase is a tokenized full-text match.
+    """
 
     city: KeywordFilter
     state: KeywordFilter

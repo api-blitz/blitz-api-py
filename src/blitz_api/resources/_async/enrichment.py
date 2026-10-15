@@ -139,32 +139,49 @@ class AsyncEnrichmentResource:
         )
 
     async def company_distribution_by_country(
-        self, *, company_linkedin_url: str, timeout: TimeoutParam = None
+        self,
+        *,
+        company_linkedin_url: str,
+        is_recent_hire: bool | None = None,
+        timeout: TimeoutParam = None,
     ) -> CompanyDistributionByCountryResponse:
         """Get a company's employee count broken down by country.
 
+        Counts **people**, not jobs: since 2026-10-14 a person with a second job at the
+        company is no longer counted twice in ``count`` / ``total_employees``.
+
         Countries are reported as ISO 3166-1 alpha-2 codes (e.g. ``US``, ``GB``);
         employees whose country can't be determined are bucketed under ``"unknown"``.
+
+        ``is_recent_hire=True`` counts only people whose current job at the company started
+        in the last 90 days (a job with no start date is not counted).
         """
         return await self._client._request(
             "POST",
             _DISTRIBUTION_BY_COUNTRY,
-            body={"company_linkedin_url": company_linkedin_url},
+            body={"company_linkedin_url": company_linkedin_url, "is_recent_hire": is_recent_hire},
             cast_to=CompanyDistributionByCountryResponse,
             timeout=timeout,
         )
 
     async def company_distribution_by_department(
-        self, *, company_linkedin_url: str, timeout: TimeoutParam = None
+        self,
+        *,
+        company_linkedin_url: str,
+        is_recent_hire: bool | None = None,
+        timeout: TimeoutParam = None,
     ) -> CompanyDistributionByDepartmentResponse:
         """Get a company's employee count broken down by department.
 
         Employees with no classified department are counted under ``"Other"``.
+
+        ``is_recent_hire=True`` counts only people whose current job at the company started
+        in the last 90 days (a job with no start date is not counted).
         """
         return await self._client._request(
             "POST",
             _DISTRIBUTION_BY_DEPARTMENT,
-            body={"company_linkedin_url": company_linkedin_url},
+            body={"company_linkedin_url": company_linkedin_url, "is_recent_hire": is_recent_hire},
             cast_to=CompanyDistributionByDepartmentResponse,
             timeout=timeout,
         )

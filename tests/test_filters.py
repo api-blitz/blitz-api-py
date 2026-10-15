@@ -10,7 +10,10 @@ from __future__ import annotations
 
 from blitz_api.types import (
     CompanyFilter,
+    JobCompanyFilter,
+    KeywordFilter,
     PeopleCompanyFilter,
+    PeopleEducationFilter,
     PeopleFilter,
     TamPeopleFilter,
 )
@@ -41,3 +44,26 @@ def test_every_filter_key_is_optional() -> None:
     # All four are ``total=False``: omitting a filter must always be legal.
     for filter_type in (CompanyFilter, PeopleCompanyFilter, PeopleFilter, TamPeopleFilter):
         assert filter_type.__required_keys__ == frozenset(), filter_type.__name__
+
+
+def test_is_recent_hire_is_not_a_filter_key() -> None:
+    # ``is_recent_hire`` is a top-level body field on every route that takes it. The API
+    # rejects unknown fields at any depth with a 422, so a ``people.is_recent_hire`` key would
+    # turn a typo-free call into an error: it must not be typeable on the people object.
+    for filter_type in (PeopleFilter, TamPeopleFilter, PeopleEducationFilter):
+        assert "is_recent_hire" not in filter_type.__annotations__, filter_type.__name__
+
+
+def test_mx_filter_is_on_every_company_filter_that_takes_it() -> None:
+    # company.mx is declared on search.companies, search.people and company.tam_by_people
+    # (the three CompanyFilter users) -- not on the job-side company filter.
+    assert "mx" in CompanyFilter.__annotations__
+    assert "mx" in PeopleCompanyFilter.__annotations__  # inherited, not restated
+    assert "mx" not in JobCompanyFilter.__annotations__
+
+
+def test_people_education_filter_extends_the_keyword_filter() -> None:
+    # Extends rather than restates, so include/exclude can't drift from KeywordFilter.
+    assert set(KeywordFilter.__annotations__) <= set(PeopleEducationFilter.__annotations__)
+    assert {"start_year", "end_year"} <= set(PeopleEducationFilter.__annotations__)
+    assert PeopleEducationFilter.__required_keys__ == frozenset()

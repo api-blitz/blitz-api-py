@@ -198,6 +198,35 @@ Every method returns a typed Pydantic model (see `blitz_api.types`). Enum-backed
 filter fields (e.g. `Industry`, `JobLevel`, `Continent`) accept either an enum
 member or a raw string.
 
+### Hiring signals and mail provider
+
+```python
+from blitz_api import BlitzAPI
+from blitz_api.types import JobLevel, MxProvider
+
+client = BlitzAPI()
+
+# VPs who started a job in the last 90 days, at companies on Google Workspace, who
+# graduated in 2015 or later. `is_recent_hire` is a top-level argument (next to
+# `max_results`), not a key of `people`.
+page = client.search.people(
+    company={"mx": {"provider": {"include": [MxProvider.GOOGLE]}}},
+    people={"job_level": [JobLevel.VP], "education": {"end_year": {"min": 2015}}},
+    is_recent_hire=True,
+)
+
+# Also search jobs a person held before: your job and company filters must hold in the
+# same job, which comes back in `experiences` with `job_is_current` set. Past jobs only:
+client.search.people(people={...}, include_active_jobs=False, include_past_jobs=True)
+```
+
+`is_recent_hire` is accepted by `search.people`, `search.employee_finder`,
+`search.waterfall_icp`, `company.tam_by_people` and both `enrichment.company_distribution_by_*`
+methods. `include_active_jobs` / `include_past_jobs` apply to `search.people` and
+`search.waterfall_icp`; setting both to `False` is a `422`. `MxProvider.ANY` stands for
+*every* provider: in `include` it keeps companies with mail data, in `exclude` it keeps
+companies with none.
+
 ## Pagination
 
 The search, jobs and TAM methods return an **auto-paginating page**: iterate it and the

@@ -121,8 +121,12 @@ class CompanyDistributionByCountryResponse(BlitzResponse):
     """Result of ``enrichment.company_distribution_by_country``.
 
     Served by ``POST /v2/enrichment/company-distribution-by-country``.
+
+    ``found`` is ``False`` (and the call costs no records) when the company is unknown or
+    has no current employees.
     """
 
+    found: bool | None = None
     company_linkedin_url: str | None = None
     total_employees: int | None = None
     distribution: list[CompanyDistributionByCountryItem] = []
@@ -145,8 +149,12 @@ class CompanyDistributionByDepartmentResponse(BlitzResponse):
     """Result of ``enrichment.company_distribution_by_department``.
 
     Served by ``POST /v2/enrichment/company-distribution-by-department``.
+
+    ``found`` is ``False`` (and the call costs no records) when the company is unknown or
+    has no current employees.
     """
 
+    found: bool | None = None
     company_linkedin_url: str | None = None
     total_employees: int | None = None
     distribution: list[CompanyDistributionByDepartmentItem] = []

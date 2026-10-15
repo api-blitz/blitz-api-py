@@ -141,7 +141,8 @@ src/blitz_api/
     shared.py        Person, Experience, Education, Certification, Location, HQ,
                      Company.
     enums.py         GENERATED. Industry (535) + CompanyType/EmployeeRange/Continent/
-                     SalesRegion/JobFunction/JobLevel/LastFundingType. Never hand-edit (see §7).
+                     SalesRegion/JobFunction/JobLevel/LastFundingType/Seniority/EmploymentType/
+                     WorkArrangement/MxProvider (66). Never hand-edit (see §7).
     filters.py       Request TypedDicts (CompanyFilter, PeopleFilter, CascadeTier,
                      TamJobFilter, TamPeopleFilter, ...)
                      and *Value type aliases (e.g. IndustryValue = Industry | str).
@@ -428,7 +429,7 @@ uv sync                              # install runtime + dev deps
 uv run ruff check . && uv run ruff format .
 uv run mypy                          # strict; includes src, tests, scripts, examples
 uv run pyright                       # strict
-uv run pytest                        # 186 tests, sync + async
+uv run pytest                        # 210 tests, sync + async
 uv run python scripts/gen_enums.py --check   # enum drift guard
 uv run python scripts/gen_sync.py --check    # sync-client/resources drift guard
 uv build                             # sdist + wheel (wheel includes py.typed)
@@ -907,3 +908,41 @@ the history rather than re-litigating it.
      `TypedDict` assignability caveat from `TamJobFilter` applies verbatim: it rejects a *dict
      literal* carrying the key, not a *declared* `PeopleCompanyFilter` variable. Pinned by
      `tests/test_filters.py`.
+- **2026-10-15** — Synced the 2026-09-28 and 2026-10-14 API releases (changelog 30 → 39
+  entries; the SDK had last synced on 2026-09-22). Request-side audit against the live spec found
+  exactly the 2026-10-14 additions and nothing else; response-side found only `found` on the
+  two distribution responses.
+  **(1) `is_recent_hire` is a top-level argument on all six routes that take it** —
+  `search.people`, `company.tam_by_people`, `search.employee_finder`, `search.waterfall_icp` and
+  both `enrichment.company_distribution_by_*`. The API owner moved it out of the `people`
+  object on the first two routes (to sit beside `max_results`, like the other four); the SDK
+  was written to that target before the spec caught up, and the live spec was republished
+  with it at the root on all six routes the same day, and the 2026-10-14 changelog entry was
+  reworded to match (re-verified 2026-10-15). It is deliberately
+  **not** a key of `PeopleFilter`/`TamPeopleFilter` (pinned in `tests/test_filters.py`): since
+  2026-09-28 the API rejects unknown fields at any depth with a `422`, so a nested key would
+  break the call rather than be ignored. **(2) Past-job search**: `include_active_jobs` /
+  `include_past_jobs` on `search.people` and `search.waterfall_icp`, passed as `bool | None` so
+  an unset flag is omitted and the server defaults (`True` / `False`) apply; `False` is a real
+  value and is sent. Both `False` is a `422`, documented and not pre-validated (same posture as
+  the 50-entry cap). **(3) `company.mx.provider`** (`MxFilter` / `MxProviderFilter` on the
+  shared `CompanyFilter`, so `search.companies`, `search.people` and `company.tam_by_people`
+  all get it; not on `JobCompanyFilter`, which the spec doesn't declare it on). The 66-value
+  provider list is a generated enum, `MxProvider`: `gen_enums.py` maps it by the bare owning
+  property `provider`, which is the only `provider` key in the spec — if another ever appears
+  with a different value list, the divergence check raises. `MxProvider.ANY` is a sentinel
+  (every provider), not a provider; documented on `MxProviderFilter`, like `Industry.UNKNOWN`.
+  **(4) `people.education.start_year` / `end_year`**: `PeopleEducationFilter` extends
+  `KeywordFilter` (extend, don't restate) and types the years as `RangeFilter`, matching the
+  `founded_year` / `last_funding_year` precedent even though the spec types them `integer`
+  0–2100. **(5) `found`** added to both distribution responses (changelog 2026-09-28: `false`
+  and zero records when the company is unknown or has no current employees); the country
+  endpoint now counts people, not jobs (2026-10-14) — docstring only. **(6) `[brackets]`
+  exact match (changelog 2026-10-15)** on `job.title` (`jobs.search`, `jobs.company`,
+  `tam_by_jobs`) and `company.hq.city` / `state` (`jobs.search`, `tam_by_jobs` only): no schema
+  change, so the filters stay plain `KeywordFilter` and the string passes through untouched —
+  documented on `JobFilter` / `JobCompanyHQFilter` and pinned by a verbatim-pass-through test. **No SDK change
+  needed** for the other 2026-09-28 entries: the unknown-field `422` is server-side, the new
+  `422` body shape (`errors[]`) is not read (`_make_status_error` takes only `message` /
+  `error`, and `body` is passed through untouched), and the cost change is billing-side.
+  Mirror all of this in `blitz-api-js`.

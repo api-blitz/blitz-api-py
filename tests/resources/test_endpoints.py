@@ -22,6 +22,7 @@ from blitz_api.types import (
     JobLevel,
     KeyInfo,
     LastFundingType,
+    MxProvider,
     PersonEnrichmentResponse,
     Seniority,
     WaterfallIcpResponse,
@@ -182,6 +183,64 @@ async def test_async_search_people_serializes_company_linkedin_url(httpx_mock: H
     }
 
 
+def test_search_people_serializes_recent_hire_and_job_scope_flags_at_top_level(
+    httpx_mock: HTTPXMock,
+) -> None:
+    # ``is_recent_hire`` sits next to ``max_results``, NOT inside ``people`` (the API rejects
+    # unknown fields at any depth with a 422). ``False`` is a real value, so it is sent.
+    httpx_mock.add_response(url=url("/v2/search/people"), method="POST", json=data.PEOPLE_SEARCH)
+    _client().search.people(
+        people={"job_level": [JobLevel.VP]},
+        is_recent_hire=True,
+        include_active_jobs=False,
+        include_past_jobs=True,
+    )
+    body = _sent_body(httpx_mock)
+    assert body == {
+        "people": {"job_level": ["VP"]},
+        "is_recent_hire": True,
+        "include_active_jobs": False,
+        "include_past_jobs": True,
+    }
+    assert "is_recent_hire" not in body["people"]
+
+
+async def test_async_search_people_serializes_recent_hire_and_job_scope_flags(
+    httpx_mock: HTTPXMock,
+) -> None:
+    httpx_mock.add_response(url=url("/v2/search/people"), method="POST", json=data.PEOPLE_SEARCH)
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        await client.search.people(is_recent_hire=True, include_past_jobs=True)
+    assert _sent_body(httpx_mock) == {"is_recent_hire": True, "include_past_jobs": True}
+
+
+def test_search_people_serializes_mx_and_education_year_filters(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(url=url("/v2/search/people"), method="POST", json=data.PEOPLE_SEARCH)
+    _client().search.people(
+        company={
+            # Companies with MX data that do not use Google: ``any`` stands for every provider.
+            "mx": {"provider": {"include": [MxProvider.ANY], "exclude": [MxProvider.GOOGLE]}},
+        },
+        people={
+            "education": {
+                "include": ["Stanford"],
+                "start_year": {"min": 2016, "max": 2020},
+                "end_year": {"min": 2018},
+            },
+        },
+    )
+    assert _sent_body(httpx_mock) == {
+        "company": {"mx": {"provider": {"include": ["any"], "exclude": ["google"]}}},
+        "people": {
+            "education": {
+                "include": ["Stanford"],
+                "start_year": {"min": 2016, "max": 2020},
+                "end_year": {"min": 2018},
+            },
+        },
+    }
+
+
 def test_search_companies(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(
         url=url("/v2/search/companies"), method="POST", json=data.COMPANY_SEARCH
@@ -189,6 +248,19 @@ def test_search_companies(httpx_mock: HTTPXMock) -> None:
     result = _client().search.companies(company={"employee_range": ["1-10"]}, max_results=1)
     assert isinstance(result, CursorPage)
     assert _sent_body(httpx_mock) == {"company": {"employee_range": ["1-10"]}, "max_results": 1}
+
+
+def test_search_companies_serializes_mx_filter(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/search/companies"), method="POST", json=data.COMPANY_SEARCH
+    )
+    _client().search.companies(
+        company={"mx": {"provider": {"include": [MxProvider.MICROSOFT, "zoho"]}}}, max_results=1
+    )
+    assert _sent_body(httpx_mock) == {
+        "company": {"mx": {"provider": {"include": ["microsoft", "zoho"]}}},
+        "max_results": 1,
+    }
 
 
 def test_employee_finder_serializes_enum_lists(httpx_mock: HTTPXMock) -> None:
@@ -207,6 +279,19 @@ def test_employee_finder_serializes_enum_lists(httpx_mock: HTTPXMock) -> None:
         "job_level": ["Director"],
         "job_function": ["Engineering"],
         "max_results": 1,
+    }
+
+
+def test_employee_finder_serializes_is_recent_hire(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/search/employee-finder"), method="POST", json=data.EMPLOYEE_FINDER
+    )
+    _client().search.employee_finder(
+        company_linkedin_url="https://www.linkedin.com/company/openai", is_recent_hire=True
+    )
+    assert _sent_body(httpx_mock) == {
+        "company_linkedin_url": "https://www.linkedin.com/company/openai",
+        "is_recent_hire": True,
     }
 
 
@@ -251,6 +336,24 @@ def test_jobs_search_serializes_job_and_company_filters(httpx_mock: HTTPXMock) -
         "max_results": 1,
     }
     assert "cursor" not in body  # None args are omitted
+
+
+def test_jobs_search_passes_bracketed_exact_match_phrases_through_verbatim(
+    httpx_mock: HTTPXMock,
+) -> None:
+    # ``[brackets]`` are the API's exact-match syntax on job.title and company.hq.city/state
+    # (2026-10-15). They are just part of the string: the client must not strip or escape them.
+    httpx_mock.add_response(url=url("/v2/jobs/search"), method="POST", json=data.JOB_SEARCH)
+    _client().jobs.search(
+        job={"title": {"include": ["[Head of Sales]"], "exclude": ["[Intern]"]}},
+        company={"hq": {"city": {"include": ["[San Francisco]"]}, "state": {"exclude": ["[CA]"]}}},
+    )
+    assert _sent_body(httpx_mock) == {
+        "job": {"title": {"include": ["[Head of Sales]"], "exclude": ["[Intern]"]}},
+        "company": {
+            "hq": {"city": {"include": ["[San Francisco]"]}, "state": {"exclude": ["[CA]"]}}
+        },
+    }
 
 
 def test_jobs_company_scopes_to_company_url(httpx_mock: HTTPXMock) -> None:
@@ -345,6 +448,26 @@ def test_company_tam_by_people_serializes_min_per_company(httpx_mock: HTTPXMock)
     assert "cursor" not in body  # None args are omitted
 
 
+def test_company_tam_by_people_serializes_recent_hire_and_new_filters(
+    httpx_mock: HTTPXMock,
+) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/company/tam-by-people"), method="POST", json=data.TAM_BY_PEOPLE
+    )
+    _client().company.tam_by_people(
+        company={"mx": {"provider": {"exclude": [MxProvider.ANY]}}},
+        people={"education": {"end_year": {"min": 2022, "max": 2025}}, "min_per_company": 3},
+        is_recent_hire=True,
+    )
+    body = _sent_body(httpx_mock)
+    assert body == {
+        "company": {"mx": {"provider": {"exclude": ["any"]}}},
+        "people": {"education": {"end_year": {"min": 2022, "max": 2025}}, "min_per_company": 3},
+        "is_recent_hire": True,
+    }
+    assert "is_recent_hire" not in body["people"]
+
+
 async def test_async_company_tam_by_people(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(
         url=url("/v2/company/tam-by-people"), method="POST", json=data.TAM_BY_PEOPLE
@@ -353,6 +476,18 @@ async def test_async_company_tam_by_people(httpx_mock: HTTPXMock) -> None:
         result = await client.company.tam_by_people(people={"min_per_company": 5})
     assert isinstance(result, AsyncCursorPage)
     assert result.results[0].matched_people == 27
+    assert _sent_body(httpx_mock) == {"people": {"min_per_company": 5}}
+
+
+async def test_async_company_tam_by_people_serializes_is_recent_hire(
+    httpx_mock: HTTPXMock,
+) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/company/tam-by-people"), method="POST", json=data.TAM_BY_PEOPLE
+    )
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        await client.company.tam_by_people(is_recent_hire=True)
+    assert _sent_body(httpx_mock) == {"is_recent_hire": True}
 
 
 def test_changelog_list_public_get_with_query_params(httpx_mock: HTTPXMock) -> None:
@@ -417,6 +552,28 @@ def test_waterfall_icp(httpx_mock: HTTPXMock) -> None:
     body = _sent_body(httpx_mock)
     assert body["cascade"][0]["include_title"] == ["CEO"]
     assert body["profile_min_connections"] == 100
+    # The three new top-level flags are absent unless set.
+    assert not {"is_recent_hire", "include_active_jobs", "include_past_jobs"} & body.keys()
+
+
+def test_waterfall_icp_serializes_past_job_flags_and_is_recent_hire(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/search/waterfall-icp-keyword"), method="POST", json=data.WATERFALL_ICP
+    )
+    _client().search.waterfall_icp(
+        company_linkedin_url="https://www.linkedin.com/company/openai",
+        cascade=[{"include_title": ["CEO"]}],
+        is_recent_hire=True,
+        include_active_jobs=False,
+        include_past_jobs=True,
+    )
+    assert _sent_body(httpx_mock) == {
+        "company_linkedin_url": "https://www.linkedin.com/company/openai",
+        "cascade": [{"include_title": ["CEO"]}],
+        "is_recent_hire": True,
+        "include_active_jobs": False,
+        "include_past_jobs": True,
+    }
 
 
 def test_current_date(httpx_mock: HTTPXMock) -> None:
@@ -450,8 +607,24 @@ def test_company_distribution_by_country(httpx_mock: HTTPXMock) -> None:
     assert result.total_employees == 1234
     assert result.distribution[0].country == "US"
     assert result.distribution[-1].country == "unknown"
+    assert result.found is True
     assert _sent_body(httpx_mock) == {
         "company_linkedin_url": "https://www.linkedin.com/company/openai"
+    }
+
+
+def test_company_distribution_by_country_serializes_is_recent_hire(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/enrichment/company-distribution-by-country"),
+        method="POST",
+        json=data.COUNTRY_DISTRIBUTION,
+    )
+    _client().enrichment.company_distribution_by_country(
+        company_linkedin_url="https://www.linkedin.com/company/openai", is_recent_hire=True
+    )
+    assert _sent_body(httpx_mock) == {
+        "company_linkedin_url": "https://www.linkedin.com/company/openai",
+        "is_recent_hire": True,
     }
 
 
@@ -481,8 +654,27 @@ def test_company_distribution_by_department(httpx_mock: HTTPXMock) -> None:
     assert isinstance(result, CompanyDistributionByDepartmentResponse)
     assert result.total_employees == 1234
     assert result.distribution[0].department == "Engineering"
+    assert result.found is True
     assert _sent_body(httpx_mock) == {
         "company_linkedin_url": "https://www.linkedin.com/company/openai"
+    }
+
+
+async def test_async_company_distribution_by_department_serializes_is_recent_hire(
+    httpx_mock: HTTPXMock,
+) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/enrichment/company-distribution-by-department"),
+        method="POST",
+        json=data.DEPARTMENT_DISTRIBUTION,
+    )
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        await client.enrichment.company_distribution_by_department(
+            company_linkedin_url="https://www.linkedin.com/company/openai", is_recent_hire=True
+        )
+    assert _sent_body(httpx_mock) == {
+        "company_linkedin_url": "https://www.linkedin.com/company/openai",
+        "is_recent_hire": True,
     }
 
 

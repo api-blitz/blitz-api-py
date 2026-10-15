@@ -13,6 +13,7 @@ from blitz_api.types import (
     Industry,
     JobFunction,
     JobLevel,
+    MxProvider,
     SalesRegion,
 )
 
@@ -33,6 +34,19 @@ def test_industry_has_the_unknown_bucket() -> None:
     # Added 2026-09-16: matches companies with no industry on file. Additive in
     # ``include``, subtractive in ``exclude`` — see IndustryFilter.
     assert Industry.UNKNOWN.value == "Unknown"
+
+
+def test_mx_provider_enum_matches_the_spec() -> None:
+    # 66 values in the live spec (2026-10-15), ``any`` first. ``any`` is a sentinel meaning
+    # *every* provider, not a provider -- see MxProviderFilter.
+    assert len(list(MxProvider)) == 66
+    assert MxProvider.ANY.value == "any"
+    assert MxProvider.GOOGLE.value == "google"
+    assert MxProvider.MICROSOFT.value == "microsoft"
+    # A value that starts with a digit gets a leading-underscore member name but keeps its
+    # exact API string.
+    assert MxProvider._20I.value == "20i"
+    assert isinstance(MxProvider.GOOGLE, str)
 
 
 def test_small_enums_have_expected_values() -> None:

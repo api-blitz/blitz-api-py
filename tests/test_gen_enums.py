@@ -29,6 +29,7 @@ FUNDING_TYPE = ["Series A", "Seed"]
 SENIORITY = ["0-2", "2-5"]
 EMPLOYMENT_TYPE = ["FULL_TIME", "INTERN"]
 WORK_ARRANGEMENT = ["On-site", "Hybrid"]
+MX_PROVIDER = ["any", "google"]
 
 DEFAULTS: dict[str, list[str]] = {
     "industry": INDUSTRY,
@@ -42,6 +43,7 @@ DEFAULTS: dict[str, list[str]] = {
     "seniority": SENIORITY,
     "employment_type": EMPLOYMENT_TYPE,
     "work_arrangement": WORK_ARRANGEMENT,
+    "provider": MX_PROVIDER,
 }
 
 
@@ -105,6 +107,7 @@ def _company_block(v: dict[str, list[str]]) -> dict[str, object]:
                     "type": _filter_prop(v["type"]),
                     "employee_range": _array_enum_prop(v["employee_range"]),
                     "last_funding_type": _filter_prop(v["last_funding_type"]),
+                    "mx": _obj_schema({"provider": _filter_prop(v["provider"])}),
                     "hq": _obj_schema(
                         {
                             "continent": _array_enum_prop(v["continent"]),
@@ -141,11 +144,12 @@ def _jobs_block(v: dict[str, list[str]]) -> dict[str, object]:
 
 
 def _full_spec(overrides: dict[str, list[str]] | None = None) -> dict[str, object]:
-    """A complete spec mirroring the real one: all 11 enums, each repeated across two
+    """A complete spec mirroring the real one: all 12 enums, each repeated across two
     content-types (json + multipart) and, for industry/type/last_funding_type, include +
     exclude, plus continent/sales_region under both companies.hq and employee-finder, and
     the jobs block contributing the three job-posting enums (and ``company.size``, which
-    shares ``EmployeeRange``). Every occurrence is identical, so it round-trips cleanly.
+    shares ``EmployeeRange``), and ``company.mx.provider`` mapping onto ``MxProvider``.
+    Every occurrence is identical, so it round-trips cleanly.
     """
     v = {**DEFAULTS, **(overrides or {})}
     return {
@@ -168,7 +172,7 @@ def _full_spec(overrides: dict[str, list[str]] | None = None) -> dict[str, objec
     }
 
 
-def test_maps_all_eleven_owning_properties_in_canonical_order() -> None:
+def test_maps_all_twelve_owning_properties_in_canonical_order() -> None:
     g = _load_gen_enums()
     enums = g.extract_enums(_full_spec())
     assert list(enums) == [
@@ -183,6 +187,7 @@ def test_maps_all_eleven_owning_properties_in_canonical_order() -> None:
         "Seniority",
         "EmploymentType",
         "WorkArrangement",
+        "MxProvider",
     ]
     assert enums == {
         "Industry": INDUSTRY,
@@ -196,6 +201,7 @@ def test_maps_all_eleven_owning_properties_in_canonical_order() -> None:
         "Seniority": SENIORITY,
         "EmploymentType": EMPLOYMENT_TYPE,
         "WorkArrangement": WORK_ARRANGEMENT,
+        "MxProvider": MX_PROVIDER,
     }
 
 
@@ -211,11 +217,11 @@ def test_collapses_identical_duplicate_occurrences() -> None:
 def test_collapses_two_properties_sharing_one_class_name() -> None:
     # `employee_range` and `company.size` carry the same buckets and both map to
     # EmployeeRange, so the shared class name must not open a second output slot —
-    # 12 keys here would mean `size` grew a class of its own.
+    # 13 keys here would mean `size` grew a class of its own.
     g = _load_gen_enums()
     enums = g.extract_enums(_full_spec())
     assert enums["EmployeeRange"] == EMPLOYEE_RANGE
-    assert len(enums) == 11
+    assert len(enums) == 12
 
 
 def test_raises_when_a_property_sharing_a_class_name_diverges() -> None:
@@ -301,7 +307,7 @@ def test_warns_about_and_ignores_an_unmapped_property(
     }
     enums = g.extract_enums(spec)
     assert "Field" not in enums
-    assert len(enums) == 11
+    assert len(enums) == 12
     assert "field" in capsys.readouterr().err
 
 
@@ -341,7 +347,7 @@ def test_ignores_response_side_type_enum_so_it_never_collides_with_company_type(
     }
     enums = g.extract_enums(spec)
     assert enums["CompanyType"] == COMPANY_TYPE
-    assert len(enums) == 11
+    assert len(enums) == 12
 
 
 def test_records_provenance_and_live_spec_version() -> None:
