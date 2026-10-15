@@ -25,13 +25,19 @@ __all__ = [
 
 
 class Location(BlitzModel):
-    """A geographic location attached to a person or a job."""
+    """A geographic location attached to a person or a job.
+
+    One superset model over three differently-sized spec sites: a person's ``location``
+    carries every field; ``Experience.job_location`` has only ``city`` / ``state_code`` /
+    ``country_code``; a job's ``location`` (``jobs.*``) has only ``city`` / ``country_code``.
+    A field the site doesn't list reads ``None``. That is deliberate — see
+    ``docs/CONTEXT.md`` §7.
+    """
 
     city: str | None = None
     state_code: str | None = None
     country_code: str | None = None
     continent: str | None = None
-    # Populated on a person's ``location``; absent from ``Experience.job_location``.
     postal_code: str | None = None
     street_address: str | None = None
 
@@ -111,14 +117,14 @@ class Person(BlitzModel):
 class HQ(BlitzModel):
     """A company's headquarters location.
 
-    .. warning::
-       ``postcode`` and ``street`` are **unverified**. They predate the spec publishing
-       real response properties, and the live spec now types every ``hq`` object — on
-       ``search.companies``, ``enrichment.company`` and both TAM builders alike — with
-       exactly the six other fields, ``additionalProperties: false`` and all six
-       ``required``. A closed schema cannot carry them, so they read ``None`` on every
-       response. Kept pending confirmation from the API owner; see ``docs/CONTEXT.md``
-       §7. Do not add fields here without checking the live spec first.
+    .. note::
+       ``postcode`` and ``street`` are deliberate extras. The live spec types every ``hq``
+       object — on ``search.companies``, ``enrichment.company`` and both TAM builders alike —
+       with exactly the six other fields, ``additionalProperties: false`` and all six
+       ``required``, so these two read ``None`` on every response. They are kept on purpose:
+       they shipped in a released version, and a ``None`` is harmless where an
+       ``AttributeError`` would not be. See ``docs/CONTEXT.md`` §7. Do not add *other* fields
+       here without checking the live spec first.
     """
 
     city: str | None = None
@@ -127,9 +133,9 @@ class HQ(BlitzModel):
     country_name: str | None = None
     region: str | None = None
     continent: str | None = None
-    #: Unverified — see the class warning.
+    #: Not in the live spec — a deliberate extra, see the class note.
     postcode: str | None = None
-    #: Unverified — see the class warning.
+    #: Not in the live spec — a deliberate extra, see the class note.
     street: str | None = None
 
 

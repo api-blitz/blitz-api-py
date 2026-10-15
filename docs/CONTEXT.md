@@ -385,24 +385,35 @@ in 4.0.0**; `tests/test_exceptions.py` pins its absence so it is not reintroduce
 - **`waterfall_icp` response shape came from the docs**, not the spec (its OpenAPI
   example is `null`). Shape: `{results: [{icp, ranking, person}]}`.
 - **`Company.linkedin_id` is an int**; `Person`/`Experience` linkedin ids are strings.
-- **`Location`** is reused for `Person.location` (has `continent`, `postal_code` and
-  `street_address`) and `Experience.job_location` (none of the three); every field is
-  optional so one model serves both.
+- **`Location` is one superset model over three differently-sized spec sites — the extras
+  are deliberate.** `Person.location` carries all six keys (`city`, `state_code`,
+  `country_code`, `continent`, `postal_code`, `street_address`); `Experience.job_location`
+  has only `city`/`state_code`/`country_code`; a job's `location` (`jobs.search`,
+  `jobs.company`) has only `city`/`country_code`. Every field is optional, so a key a given
+  site doesn't list reads `None` there. This is the §5 superset convention (a key is a defect
+  only if it appears at *no* site for the type), and the alternative — three near-identical
+  location models — would make every `Person`/`Experience`/`Job` consumer branch on which one
+  it holds. Audit output will list the missing-at-this-site keys as SDK-only; that is
+  expected, not drift.
 - **Every response schema in the spec is closed** — all 236 response object schemas carry
   `additionalProperties: false`, and most list every key as `required`. So the spec's key
   set for a response object is *exhaustive*: an SDK field absent from it is not "maybe
   undocumented", it provably cannot be returned. That makes a full model audit mechanical;
   see the §10 playbook.
-- **`HQ.postcode` and `HQ.street` are unverified and are probably not real.** They predate
-  the spec publishing real response properties. Every `hq` object in the live spec —
-  `search.companies`, `enrichment.company`, `tam_by_jobs`, `tam_by_people` — has exactly
-  `city`/`state`/`country_code`/`country_name`/`region`/`continent`, closed and all
-  required; the strings `postcode` and `street` occur **zero** times in the live spec, zero
-  times in the docs-site mirror (whose `enrichment.company` example shows the six-key `hq`),
-  and zero times in the published docs. They are kept for now only because they shipped in a
-  released version, unlike the three phantom `Company` fields caught in the same audit,
-  which were removed before release. **Open question for the API owner**: confirm they are
-  gone and remove both in the next major, following the `field_of_study` precedent.
+- **`HQ.postcode` and `HQ.street` are deliberate extras — keep them.** The spec lists neither:
+  every `hq` object in the live spec — `search.companies`, `enrichment.company`, `tam_by_jobs`,
+  `tam_by_people` — has exactly `city`/`state`/`country_code`/`country_name`/`region`/
+  `continent`, closed and all required, and the strings `postcode` and `street` occur **zero**
+  times in the live spec, the docs-site mirror and the published docs, so they read `None` on
+  every response. They stay by maintainer decision (2026-10-15, taken while weighing their
+  removal as a `feat!:` / 5.0.0). Reasons on record: they shipped in a released version;
+  keeping them costs nothing at runtime (`Optional`, `None`); and removing them would turn
+  that silent `None` into an `AttributeError` for anyone who reads them — the same trade the
+  repo made for `Person.profile_picture_url`, except that field *is* in the spec. This
+  **reverses** the earlier plan to confirm with the API owner and drop both in the next
+  major, so do not reopen it from an audit hit. It does not loosen the rule for *new* fields:
+  a response field still has to be traceable to the live spec (§10) — the lesson of the three
+  phantom `Company` fields removed in 4.0.0.
 - **`Person.profile_picture_url` is always `null`** since 2026-09-15. The API kept the key
   so clients don't break, so the field stays on the model (typed, documented) rather than
   being removed — removing it would turn a silent `None` into an `AttributeError` for no gain.
@@ -483,6 +494,12 @@ The spec now publishes real response `properties`, so a refresh is a diff, not a
 2. Walk `paths[*][method].responses["200"].content["application/json"].schema` and flatten
    it to `path.field: type` lines (a ~40-line `jq`/Python script), then compare against the
    models in `types/`. Renames and new fields fall straight out of the diff.
+   **Expected SDK-only keys — deliberate, not drift** (§7, §12): `Location` fields a site
+   doesn't list (`job_location.continent`/`postal_code`/`street_address`; jobs
+   `location.continent`/`postal_code`/`state_code`/`street_address`), `HQ.postcode` and
+   `HQ.street` at every `hq` site, and `total_results` on `tam_by_jobs`/`tam_by_people` (the
+   shared `CursorPage` declares it; those two endpoints omit it, so it stays `None`). Anything
+   *else* that is SDK-only is a real finding.
 3. `GET https://api.blitz-api.ai/changelog/` is the narrative companion — it names the
    breaking renames and dates them, which the schema diff alone can't tell you.
 4. Apply changes to the models, add fixtures in `tests/data.py`, and run §8.
@@ -941,7 +958,13 @@ the history rather than re-litigating it.
   exact match (changelog 2026-10-15)** on `job.title` (`jobs.search`, `jobs.company`,
   `tam_by_jobs`) and `company.hq.city` / `state` (`jobs.search`, `tam_by_jobs` only): no schema
   change, so the filters stay plain `KeywordFilter` and the string passes through untouched —
-  documented on `JobFilter` / `JobCompanyHQFilter` and pinned by a verbatim-pass-through test. **No SDK change
+  documented on `JobFilter` / `JobCompanyHQFilter` and pinned by a verbatim-pass-through test.
+  **(7) Full re-audit, and which SDK-only keys are deliberate.** Re-ran the request *and*
+  response comparison over all 20 JSON routes against a fresh spec: zero request differences;
+  every response difference is an SDK-only key, all of them deliberate — the `Location`
+  per-site extras and `HQ.postcode`/`street` (both recorded in §7) and `total_results` on the
+  two TAM builders (§10). `HQ.postcode`/`street` were weighed for removal as a `feat!:` and
+  deliberately **kept** (§7), so this release stays a minor. **No SDK change
   needed** for the other 2026-09-28 entries: the unknown-field `422` is server-side, the new
   `422` body shape (`errors[]`) is not read (`_make_status_error` takes only `message` /
   `error`, and `body` is passed through untouched), and the cost change is billing-side.
