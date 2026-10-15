@@ -23,6 +23,7 @@ from .enums import (
     JobFunction,
     JobLevel,
     LastFundingType,
+    MxProvider,
     SalesRegion,
     Seniority,
     WorkArrangement,
@@ -37,6 +38,7 @@ IndustryValue = Industry | str
 CompanyTypeValue = CompanyType | str
 EmployeeRangeValue = EmployeeRange | str
 LastFundingTypeValue = LastFundingType | str
+MxProviderValue = MxProvider | str
 ContinentValue = Continent | str
 SalesRegionValue = SalesRegion | str
 JobFunctionValue = JobFunction | str
@@ -89,6 +91,30 @@ class LastFundingTypeFilter(TypedDict, total=False):
     exclude: list[LastFundingTypeValue]
 
 
+class MxProviderFilter(TypedDict, total=False):
+    """Include/exclude filter over the mail provider behind a company's domains.
+
+    :attr:`~blitz_api.types.MxProvider.ANY` (``"any"``) stands for *every* provider. In
+    ``include`` it keeps companies that have MX data at all; in ``exclude`` it keeps
+    companies that have **none**. So ``{"include": ["any"], "exclude": ["google"]}`` means
+    "has MX data, but not on Google".
+    """
+
+    include: list[MxProviderValue]
+    exclude: list[MxProviderValue]
+
+
+class MxFilter(TypedDict, total=False):
+    """Mail-provider criteria, read from the MX records of a company's domains.
+
+    A company matches when **any** of its domains uses the provider. A company with no MX
+    data is never matched by ``include`` and never dropped by ``exclude`` — unless you use
+    :attr:`~blitz_api.types.MxProvider.ANY`.
+    """
+
+    provider: MxProviderFilter
+
+
 class RangeFilter(TypedDict, total=False):
     """Numeric range filter. ``0`` means unset for most fields.
 
@@ -139,6 +165,7 @@ class CompanyFilter(TypedDict, total=False):
     keywords: KeywordFilter
     founded_year: RangeFilter
     hq: CompanyHQFilter
+    mx: MxFilter
 
 
 class PeopleCompanyFilter(CompanyFilter, total=False):
@@ -183,6 +210,19 @@ class PeopleLocationFilter(TypedDict, total=False):
     sales_region: list[SalesRegionValue]
 
 
+class PeopleEducationFilter(KeywordFilter, total=False):
+    """Education filter for the person: phrase include/exclude plus start/end year ranges.
+
+    ``start_year`` and ``end_year`` (graduation year) are :class:`RangeFilter` bounds with
+    ``0`` meaning unset. They apply to the **same education entry** that ``include`` matches,
+    so the school and the year are correlated rather than matched independently. An entry
+    with no such year never matches a bound.
+    """
+
+    start_year: RangeFilter
+    end_year: RangeFilter
+
+
 class PeopleFilter(TypedDict, total=False):
     """People search criteria for ``search.people``.
 
@@ -191,6 +231,16 @@ class PeopleFilter(TypedDict, total=False):
     results for your other criteria instead of the people you asked for). Match specific
     people by LinkedIn URL with ``company.tam_by_people`` (:class:`TamPeopleFilter`),
     which still accepts it.
+
+    This is the persona criteria ``search.people`` and ``company.tam_by_people`` share;
+    :class:`SearchPeopleFilter` adds the past-job flags only ``search.people`` takes, and
+    :class:`TamPeopleFilter` adds the keys only ``company.tam_by_people`` takes.
+
+    ``is_recent_hire`` is a key of *this* object, not a top-level argument of either method.
+    (Not every route is the same: ``search.employee_finder`` and the two
+    ``enrichment.company_distribution_by_*`` methods take it as a top-level argument.) The
+    API rejects unknown fields at any depth with a ``422``, so a flag in the wrong place
+    fails the call.
     """
 
     job_title: PeopleJobTitleFilter
@@ -198,7 +248,39 @@ class PeopleFilter(TypedDict, total=False):
     job_level: list[JobLevelValue]
     min_connections: int
     location: PeopleLocationFilter
-    education: KeywordFilter
+    # ``| KeywordFilter`` is deliberate: this field was a ``KeywordFilter`` before it gained
+    # year ranges, and a ``KeywordFilter`` *variable* is not assignable to the wider
+    # ``PeopleEducationFilter`` alone (its extra optional keys could hold any type). The union
+    # keeps that existing usage compiling; dict literals and ``PeopleEducationFilter`` variables
+    # are unaffected.
+    education: PeopleEducationFilter | KeywordFilter
+    # Only people with a job that started in the last 90 days. The job must also match the
+    # other job and company filters; a job with no start date never matches. On
+    # ``search.people`` it covers the jobs ``include_active_jobs`` / ``include_past_jobs``
+    # select (current jobs by default); on ``company.tam_by_people``, current jobs.
+    is_recent_hire: bool
+
+
+class SearchPeopleFilter(PeopleFilter, total=False):
+    """People criteria for ``search.people`` — every :class:`PeopleFilter` field plus the
+    flags that choose which of a person's jobs are searched.
+
+    ``company.tam_by_people`` does **not** take these two (its ``people`` object has only
+    ``is_recent_hire`` of the job-scope flags), which is why they are not on
+    :class:`PeopleFilter`. ``search.people`` accepts ``SearchPeopleFilter | PeopleFilter`` so
+    an existing ``PeopleFilter`` variable keeps type-checking: a ``PeopleFilter`` variable is
+    not assignable to this wider type alone (``TypedDict`` assignability is structural, and
+    the extra optional keys could hold anything).
+    """
+
+    # Search the current jobs of each person (server default ``True``). Your job and company
+    # filters must hold in the *same* job; that job is returned in ``experiences`` with
+    # ``job_is_current`` set.
+    include_active_jobs: bool
+    # Also search the past jobs of each person (server default ``False``). A person is returned
+    # once, with the matched job; a current job is preferred to a past one. Setting both
+    # ``include_*_jobs`` flags to ``False`` is a ``422``.
+    include_past_jobs: bool
 
 
 class CascadeTier(TypedDict):
@@ -207,12 +289,28 @@ class CascadeTier(TypedDict):
     Only ``include_title`` is required; the server defaults ``location`` to worldwide
     and ``include_headline_search`` to ``False`` when omitted. The ``cascade`` list is
     capped at **10 tiers**, and each tier at 50 title phrases.
+
+    ``is_recent_hire``, ``include_active_jobs`` and ``include_past_jobs`` are per-tier keys,
+    not arguments of ``search.waterfall_icp``: each tier can scope its own search, so a
+    cascade can try recent hires first and fall back to everyone.
     """
 
     include_title: list[str]
     location: NotRequired[list[str]]
     include_headline_search: NotRequired[bool]
     exclude_title: NotRequired[list[str]]
+    # Only people whose job at the company started in the last 90 days. It covers the jobs
+    # this tier's ``include_active_jobs`` / ``include_past_jobs`` select (current jobs by
+    # default), and that job must also match the tier's title filters; a job with no start
+    # date never matches.
+    is_recent_hire: NotRequired[bool]
+    # Search the current jobs of each person (server default ``True``). The company and the
+    # tier's title filters must hold in the same job; it is returned in ``experiences`` with
+    # ``job_is_current`` set.
+    include_active_jobs: NotRequired[bool]
+    # Also search the jobs a person held *before* at the company (server default ``False``).
+    # A person is returned once. Both ``include_*_jobs`` flags ``False`` is a ``422``.
+    include_past_jobs: NotRequired[bool]
 
 
 class SeniorityFilter(TypedDict, total=False):
@@ -256,6 +354,8 @@ class DatePostedFilter(TypedDict):
 class JobFilter(TypedDict, total=False):
     """Job-level search criteria, shared by ``jobs.search`` and ``jobs.company``."""
 
+    # Wrap a phrase in ``[brackets]`` (e.g. ``"[Head of Sales]"``) to match the whole title
+    # exactly, ignoring case and accents; an unbracketed phrase is a tokenized full-text match.
     title: KeywordFilter
     description: KeywordFilter
     ai_keywords: KeywordFilter  # Broad theme search across title, description, taxonomies.
@@ -289,8 +389,10 @@ class TamPeopleFilter(PeopleFilter, total=False):
     plus ``linkedin_url`` and a per-company floor.
 
     Extends ``PeopleFilter`` for the same reason as :class:`TamJobFilter`, and because
-    the API documents this endpoint as taking *the same input as Find People*: sharing
-    the base is what keeps that true as the persona filters evolve.
+    the API documents this endpoint as taking the same persona input as Find People: sharing
+    the base is what keeps that true as the persona filters evolve. The one deliberate gap is
+    :class:`SearchPeopleFilter`'s ``include_active_jobs`` / ``include_past_jobs``, which only
+    ``search.people`` takes.
     """
 
     # Match specific people by LinkedIn URL. Still honoured here (unlike on
@@ -309,7 +411,12 @@ class CompanySizeFilter(TypedDict, total=False):
 
 
 class JobCompanyHQFilter(TypedDict, total=False):
-    """Headquarters-location filter for the company side of a job search."""
+    """Headquarters-location filter for the company side of a job search.
+
+    ``city`` and ``state`` take the same ``[brackets]`` exact-match syntax as
+    :attr:`JobFilter.title`: ``"[San Francisco]"`` matches the whole value exactly (ignoring
+    case and accents), while an unbracketed phrase is a tokenized full-text match.
+    """
 
     city: KeywordFilter
     state: KeywordFilter

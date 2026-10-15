@@ -8,10 +8,18 @@ between a caller and a query that quietly matched on the wrong criteria.
 
 from __future__ import annotations
 
+import inspect
+
+from blitz_api import BlitzAPI
 from blitz_api.types import (
+    CascadeTier,
     CompanyFilter,
+    JobCompanyFilter,
+    KeywordFilter,
     PeopleCompanyFilter,
+    PeopleEducationFilter,
     PeopleFilter,
+    SearchPeopleFilter,
     TamPeopleFilter,
 )
 
@@ -41,3 +49,88 @@ def test_every_filter_key_is_optional() -> None:
     # All four are ``total=False``: omitting a filter must always be legal.
     for filter_type in (CompanyFilter, PeopleCompanyFilter, PeopleFilter, TamPeopleFilter):
         assert filter_type.__required_keys__ == frozenset(), filter_type.__name__
+
+
+_JOB_SCOPE_FLAGS = ("is_recent_hire", "include_active_jobs", "include_past_jobs")
+
+
+def test_job_scope_flags_are_keys_where_the_spec_nests_them() -> None:
+    # The API rejects unknown fields at any depth with a 422, so placement is load-bearing:
+    # inside ``people`` on search.people / tam_by_people, inside each ``cascade`` tier on
+    # waterfall_icp.
+    assert "is_recent_hire" in PeopleFilter.__annotations__  # shared by both people routes
+    assert "is_recent_hire" in TamPeopleFilter.__annotations__
+    assert set(_JOB_SCOPE_FLAGS) <= set(SearchPeopleFilter.__annotations__)
+    assert set(_JOB_SCOPE_FLAGS) <= set(CascadeTier.__annotations__)
+    # ...and every one is optional in a tier (only ``include_title`` is required). Checked
+    # statically: ``from __future__ import annotations`` hides ``NotRequired`` from the runtime
+    # ``__required_keys__``, so mypy/pyright failing on this line is the real assertion.
+    minimal: CascadeTier = {"include_title": ["CEO"]}
+    assert minimal == {"include_title": ["CEO"]}
+
+
+def test_past_job_flags_are_search_people_only() -> None:
+    # company.tam_by_people's ``people`` object takes is_recent_hire but NOT the past-job flags
+    # (live spec, 2026-10-15), so neither it nor the shared base may offer them -- a key the
+    # endpoint rejects with a 422 must not autocomplete.
+    for name in ("include_active_jobs", "include_past_jobs"):
+        assert name in SearchPeopleFilter.__annotations__
+        assert name not in PeopleFilter.__annotations__
+        assert name not in TamPeopleFilter.__annotations__
+    assert set(PeopleFilter.__annotations__) <= set(SearchPeopleFilter.__annotations__)
+
+
+def test_job_scope_flags_are_not_top_level_arguments_where_they_are_nested() -> None:
+    client = BlitzAPI(api_key="k")
+    for method in (client.search.people, client.company.tam_by_people, client.search.waterfall_icp):
+        params = set(inspect.signature(method).parameters)
+        assert not params & set(_JOB_SCOPE_FLAGS), method.__name__
+
+
+def test_is_recent_hire_is_still_a_top_level_argument_on_the_other_routes() -> None:
+    # employee_finder and both company distributions take it at the root, not in a filter.
+    client = BlitzAPI(api_key="k")
+    for method in (
+        client.search.employee_finder,
+        client.enrichment.company_distribution_by_country,
+        client.enrichment.company_distribution_by_department,
+    ):
+        assert "is_recent_hire" in inspect.signature(method).parameters, method.__name__
+
+
+def test_mx_filter_is_on_every_company_filter_that_takes_it() -> None:
+    # company.mx is declared on search.companies, search.people and company.tam_by_people
+    # (the three CompanyFilter users) -- not on the job-side company filter.
+    assert "mx" in CompanyFilter.__annotations__
+    assert "mx" in PeopleCompanyFilter.__annotations__  # inherited, not restated
+    assert "mx" not in JobCompanyFilter.__annotations__
+
+
+def test_people_education_filter_extends_the_keyword_filter() -> None:
+    # Extends rather than restates, so include/exclude can't drift from KeywordFilter.
+    assert set(KeywordFilter.__annotations__) <= set(PeopleEducationFilter.__annotations__)
+    assert {"start_year", "end_year"} <= set(PeopleEducationFilter.__annotations__)
+    assert PeopleEducationFilter.__required_keys__ == frozenset()
+
+
+def test_a_reused_keyword_filter_variable_is_still_accepted_as_education() -> None:
+    # Regression for a *static* check: ``mypy`` / ``pyright`` fail this file if it stops
+    # type-checking. ``people.education`` was a ``KeywordFilter`` before it gained year ranges,
+    # and a ``KeywordFilter`` *variable* is not assignable to the wider ``PeopleEducationFilter``
+    # alone -- ``TypedDict`` assignability is structural and its extra optional keys could carry
+    # any type -- so the field must keep accepting the old type too. (The reverse direction,
+    # a declared child where the parent is expected, is the one the ``Tam*`` docstrings measure.)
+    education: KeywordFilter = {"include": ["Stanford"]}
+    people: PeopleFilter = {"education": education}
+    tam: TamPeopleFilter = {"education": education}
+    assert people["education"] is education
+    assert tam["education"] is education
+
+    # ...and the new type still works as a declared variable and as a dict literal.
+    dated: PeopleEducationFilter = {"include": ["Stanford"], "end_year": {"min": 2015}}
+    people_dated: PeopleFilter = {"education": dated}
+    assert people_dated["education"] is dated
+    literal: PeopleFilter = {"education": {"include": ["MIT"], "start_year": {"max": 2020}}}
+    literal_education = literal.get("education")
+    assert literal_education is not None
+    assert literal_education.get("include") == ["MIT"]

@@ -215,15 +215,24 @@ PERSON_ENRICHMENT: dict[str, Any] = {
     "fair_usage": FAIR_USAGE,
 }
 
+# MX records as ``enrichment.company`` and ``enrichment.email`` return them (2026-10-15). The
+# shared ``_COMPANY`` fixture stays mx-free: the search / TAM endpoints' companies don't carry it.
+_MX: list[dict[str, Any]] = [
+    {"priority": 1, "host": "aspmx.l.google.com"},
+    {"priority": 5, "host": "alt1.aspmx.l.google.com"},
+]
+
 EMAIL_ENRICHMENT: dict[str, Any] = {
     "found": True,
     "email": "antoine@blitz-agency.com",
+    "mx": _MX,
     "all_emails": [
         {
             "email": "antoine@blitz-agency.com",
             "job_order_in_profile": 1,
             "company_linkedin_url": "https://www.linkedin.com/company/blitz-api",
             "email_domain": "blitz-agency.com",
+            "mx": _MX,
         }
     ],
 }
@@ -238,7 +247,7 @@ EMAIL_TO_PERSON: dict[str, Any] = {"found": True, "person": _PERSON}
 
 PHONE_TO_PERSON: dict[str, Any] = {"found": True, "person": _PERSON}
 
-COMPANY_ENRICHMENT: dict[str, Any] = {"found": True, "company": _COMPANY}
+COMPANY_ENRICHMENT: dict[str, Any] = {"found": True, "company": {**_COMPANY, "mx": _MX}}
 
 DOMAIN_TO_LINKEDIN: dict[str, Any] = {
     "found": True,
@@ -272,6 +281,7 @@ CURRENT_DATE: dict[str, Any] = {
 }
 
 COUNTRY_DISTRIBUTION: dict[str, Any] = {
+    "found": True,
     "company_linkedin_url": "https://www.linkedin.com/company/openai",
     "total_employees": 1234,
     "distribution": [
@@ -282,6 +292,7 @@ COUNTRY_DISTRIBUTION: dict[str, Any] = {
 }
 
 DEPARTMENT_DISTRIBUTION: dict[str, Any] = {
+    "found": True,
     "company_linkedin_url": "https://www.linkedin.com/company/openai",
     "total_employees": 1234,
     "distribution": [

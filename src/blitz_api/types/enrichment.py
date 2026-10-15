@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ._models import BlitzModel, BlitzResponse
-from .shared import Company, Person
+from .shared import Company, MxRecord, Person
 
 __all__ = [
     "PersonEnrichmentResponse",
@@ -41,6 +41,9 @@ class EmailMatch(BlitzModel):
     job_order_in_profile: int | None = None
     company_linkedin_url: str | None = None
     email_domain: str | None = None
+    #: MX records of the email's domain, by priority, at most 10. ``None`` when not resolved
+    #: (so, as on :attr:`EmailEnrichmentResponse.mx`, not coerced to ``[]``).
+    mx: list[MxRecord] | None = None
 
 
 class EmailEnrichmentResponse(BlitzResponse):
@@ -48,6 +51,10 @@ class EmailEnrichmentResponse(BlitzResponse):
 
     found: bool | None = None
     email: str | None = None
+    #: MX records of ``email``'s domain, by priority, at most 10. ``None`` when not resolved
+    #: -- left as ``None`` rather than coerced to ``[]``, because for the sibling
+    #: :attr:`Company.mx` the two mean different things and the field should read alike.
+    mx: list[MxRecord] | None = None
     all_emails: list[EmailMatch] = []
 
 
@@ -121,8 +128,12 @@ class CompanyDistributionByCountryResponse(BlitzResponse):
     """Result of ``enrichment.company_distribution_by_country``.
 
     Served by ``POST /v2/enrichment/company-distribution-by-country``.
+
+    ``found`` is ``False`` (and the call costs no records) when the company is unknown or
+    has no current employees.
     """
 
+    found: bool | None = None
     company_linkedin_url: str | None = None
     total_employees: int | None = None
     distribution: list[CompanyDistributionByCountryItem] = []
@@ -145,8 +156,12 @@ class CompanyDistributionByDepartmentResponse(BlitzResponse):
     """Result of ``enrichment.company_distribution_by_department``.
 
     Served by ``POST /v2/enrichment/company-distribution-by-department``.
+
+    ``found`` is ``False`` (and the call costs no records) when the company is unknown or
+    has no current employees.
     """
 
+    found: bool | None = None
     company_linkedin_url: str | None = None
     total_employees: int | None = None
     distribution: list[CompanyDistributionByDepartmentItem] = []

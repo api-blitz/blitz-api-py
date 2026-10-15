@@ -198,6 +198,55 @@ Every method returns a typed Pydantic model (see `blitz_api.types`). Enum-backed
 filter fields (e.g. `Industry`, `JobLevel`, `Continent`) accept either an enum
 member or a raw string.
 
+### Hiring signals and mail provider
+
+```python
+from blitz_api import BlitzAPI
+from blitz_api.types import JobLevel, MxProvider
+
+client = BlitzAPI()
+
+# VPs who started a job in the last 90 days, at companies on Google Workspace, who
+# graduated in 2015 or later. `is_recent_hire` is a key of `people`.
+page = client.search.people(
+    company={"mx": {"provider": {"include": [MxProvider.GOOGLE]}}},
+    people={
+        "job_level": [JobLevel.VP],
+        "education": {"end_year": {"min": 2015}},
+        "is_recent_hire": True,
+    },
+)
+
+# Also search jobs a person held before: your job and company filters must hold in the
+# same job, which comes back in `experiences` with `job_is_current` set. Past jobs only:
+client.search.people(people={"include_active_jobs": False, "include_past_jobs": True})
+
+# The waterfall takes the same three flags per cascade tier: try recent hires first, then
+# fall back to anyone in the role.
+client.search.waterfall_icp(
+    company_linkedin_url="https://www.linkedin.com/company/openai",
+    cascade=[
+        {"include_title": ["CTO"], "is_recent_hire": True},
+        {"include_title": ["CTO"]},
+    ],
+)
+```
+
+Where the flags go depends on the route, and the API rejects a flag in the wrong place with a
+`422`:
+
+| Route | `is_recent_hire` | `include_active_jobs` / `include_past_jobs` |
+| --- | --- | --- |
+| `search.people` | key of `people` | key of `people` |
+| `company.tam_by_people` | key of `people` | — |
+| `search.waterfall_icp` | key of each `cascade` tier | key of each `cascade` tier |
+| `search.employee_finder` | top-level argument | — |
+| `enrichment.company_distribution_by_country` / `_by_department` | top-level argument | — |
+
+Setting both `include_*_jobs` flags to `False` is a `422`. `MxProvider.ANY` stands for
+*every* provider: in `include` it keeps companies with mail data, in `exclude` it keeps
+companies with none.
+
 ## Pagination
 
 The search, jobs and TAM methods return an **auto-paginating page**: iterate it and the

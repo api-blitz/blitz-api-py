@@ -141,7 +141,8 @@ src/blitz_api/
     shared.py        Person, Experience, Education, Certification, Location, HQ,
                      Company.
     enums.py         GENERATED. Industry (535) + CompanyType/EmployeeRange/Continent/
-                     SalesRegion/JobFunction/JobLevel/LastFundingType. Never hand-edit (see §7).
+                     SalesRegion/JobFunction/JobLevel/LastFundingType/Seniority/EmploymentType/
+                     WorkArrangement/MxProvider (66). Never hand-edit (see §7).
     filters.py       Request TypedDicts (CompanyFilter, PeopleFilter, CascadeTier,
                      TamJobFilter, TamPeopleFilter, ...)
                      and *Value type aliases (e.g. IndustryValue = Industry | str).
@@ -238,7 +239,12 @@ Internal decisions worth preserving:
   `array | null` is a `BlitzList`, so a caller never needs a `None` guard on a list. Audited
   against the live spec on 2026-09-22 — the remaining plain `list[T] = []` fields
   (`allowed_apis`, `active_plans`, `all_emails`, `other`, both `distribution`s, the waterfall
-  `results`) are all non-nullable upstream. If you add a nullable list, use `BlitzList`.
+  `results`) are all non-nullable upstream. If you add a nullable list, use `BlitzList`
+  — **unless `null` and `[]` are different answers.** `mx` (`Company.mx`,
+  `EmailEnrichmentResponse.mx`, `EmailMatch.mx`, added 2026-10-15) is the one such field: the
+  spec and changelog say `null` means "no MX data for the domain yet" while `[]` means "the
+  domain takes no mail", so it is `list[MxRecord] | None` and a caller *should* branch on
+  `None`. Coercing would silently turn "unknown" into "has no mail server".
 - **The `Tam*Filter` request types extend their base, they don't restate it.**
   `TamJobFilter(JobFilter)` and `TamPeopleFilter(PeopleFilter)` add only the keys the TAM
   endpoints have on top of the shared criteria. This replaced a flat copy-paste convention
@@ -384,24 +390,39 @@ in 4.0.0**; `tests/test_exceptions.py` pins its absence so it is not reintroduce
 - **`waterfall_icp` response shape came from the docs**, not the spec (its OpenAPI
   example is `null`). Shape: `{results: [{icp, ranking, person}]}`.
 - **`Company.linkedin_id` is an int**; `Person`/`Experience` linkedin ids are strings.
-- **`Location`** is reused for `Person.location` (has `continent`, `postal_code` and
-  `street_address`) and `Experience.job_location` (none of the three); every field is
-  optional so one model serves both.
+- **`Location` is one superset model over three differently-sized spec sites — the extras
+  are deliberate.** `Person.location` carries all six keys (`city`, `state_code`,
+  `country_code`, `continent`, `postal_code`, `street_address`); `Experience.job_location`
+  has only `city`/`state_code`/`country_code`; a job's `location` (`jobs.search`,
+  `jobs.company`) has only `city`/`country_code`. Every field is optional, so a key a given
+  site doesn't list reads `None` there. This is the §5 superset convention (a key is a defect
+  only if it appears at *no* site for the type), and the alternative — three near-identical
+  location models — would make every `Person`/`Experience`/`Job` consumer branch on which one
+  it holds. Audit output will list the missing-at-this-site keys as SDK-only; that is
+  expected, not drift.
+- **`Company.mx` is returned by `enrichment.company` only.** It is on the shared `Company` model
+  (superset convention, §5) so it reads `None` on `search.companies` and the TAM builders' companies,
+  whose schemas don't list it — audit output will show it SDK-only at those three sites; expected.
+  Note `null` vs `[]` are distinct there (§5).
 - **Every response schema in the spec is closed** — all 236 response object schemas carry
   `additionalProperties: false`, and most list every key as `required`. So the spec's key
   set for a response object is *exhaustive*: an SDK field absent from it is not "maybe
   undocumented", it provably cannot be returned. That makes a full model audit mechanical;
   see the §10 playbook.
-- **`HQ.postcode` and `HQ.street` are unverified and are probably not real.** They predate
-  the spec publishing real response properties. Every `hq` object in the live spec —
-  `search.companies`, `enrichment.company`, `tam_by_jobs`, `tam_by_people` — has exactly
-  `city`/`state`/`country_code`/`country_name`/`region`/`continent`, closed and all
-  required; the strings `postcode` and `street` occur **zero** times in the live spec, zero
-  times in the docs-site mirror (whose `enrichment.company` example shows the six-key `hq`),
-  and zero times in the published docs. They are kept for now only because they shipped in a
-  released version, unlike the three phantom `Company` fields caught in the same audit,
-  which were removed before release. **Open question for the API owner**: confirm they are
-  gone and remove both in the next major, following the `field_of_study` precedent.
+- **`HQ.postcode` and `HQ.street` are deliberate extras — keep them.** The spec lists neither:
+  every `hq` object in the live spec — `search.companies`, `enrichment.company`, `tam_by_jobs`,
+  `tam_by_people` — has exactly `city`/`state`/`country_code`/`country_name`/`region`/
+  `continent`, closed and all required, and the strings `postcode` and `street` occur **zero**
+  times in the live spec, the docs-site mirror and the published docs, so they read `None` on
+  every response. They stay by maintainer decision (2026-10-15, taken while weighing their
+  removal as a `feat!:` / 5.0.0). Reasons on record: they shipped in a released version;
+  keeping them costs nothing at runtime (`Optional`, `None`); and removing them would turn
+  that silent `None` into an `AttributeError` for anyone who reads them — the same trade the
+  repo made for `Person.profile_picture_url`, except that field *is* in the spec. This
+  **reverses** the earlier plan to confirm with the API owner and drop both in the next
+  major, so do not reopen it from an audit hit. It does not loosen the rule for *new* fields:
+  a response field still has to be traceable to the live spec (§10) — the lesson of the three
+  phantom `Company` fields removed in 4.0.0.
 - **`Person.profile_picture_url` is always `null`** since 2026-09-15. The API kept the key
   so clients don't break, so the field stays on the model (typed, documented) rather than
   being removed — removing it would turn a silent `None` into an `AttributeError` for no gain.
@@ -428,7 +449,7 @@ uv sync                              # install runtime + dev deps
 uv run ruff check . && uv run ruff format .
 uv run mypy                          # strict; includes src, tests, scripts, examples
 uv run pyright                       # strict
-uv run pytest                        # 186 tests, sync + async
+uv run pytest                        # 217 tests, sync + async
 uv run python scripts/gen_enums.py --check   # enum drift guard
 uv run python scripts/gen_sync.py --check    # sync-client/resources drift guard
 uv build                             # sdist + wheel (wheel includes py.typed)
@@ -482,6 +503,14 @@ The spec now publishes real response `properties`, so a refresh is a diff, not a
 2. Walk `paths[*][method].responses["200"].content["application/json"].schema` and flatten
    it to `path.field: type` lines (a ~40-line `jq`/Python script), then compare against the
    models in `types/`. Renames and new fields fall straight out of the diff.
+   **Expected SDK-only keys — deliberate, not drift** (§7, §12): `Location` fields a site
+   doesn't list (`job_location.continent`/`postal_code`/`street_address`; jobs
+   `location.continent`/`postal_code`/`state_code`/`street_address`), `HQ.postcode` and
+   `HQ.street` at every `hq` site, and `total_results` on `tam_by_jobs`/`tam_by_people` (the
+   shared `CursorPage` declares it; those two endpoints omit it, so it stays `None`), and `Company.mx` at
+   the three non-enrichment company sites (`results.mx` on `search.companies`, `results.company.mx` on both TAM
+   builders). Anything
+   *else* that is SDK-only is a real finding.
 3. `GET https://api.blitz-api.ai/changelog/` is the narrative companion — it names the
    breaking renames and dates them, which the schema diff alone can't tell you.
 4. Apply changes to the models, add fixtures in `tests/data.py`, and run §8.
@@ -907,3 +936,81 @@ the history rather than re-litigating it.
      `TypedDict` assignability caveat from `TamJobFilter` applies verbatim: it rejects a *dict
      literal* carrying the key, not a *declared* `PeopleCompanyFilter` variable. Pinned by
      `tests/test_filters.py`.
+- **2026-10-15** — Synced the 2026-09-28 and 2026-10-14 API releases (changelog 30 → 39
+  entries; the SDK had last synced on 2026-09-22). Request-side audit against the live spec found
+  exactly the 2026-10-14 additions and nothing else; response-side found only `found` on the
+  two distribution responses.
+  **(1) Where the job-scope flags live is per route — and `is_recent_hire` has moved twice in two
+  days; read this before touching it.** `is_recent_hire` first shipped nested in `people` on
+  `search.people` / `tam_by_people`, with `include_active_jobs` / `include_past_jobs` top-level
+  on `search.people` and `search.waterfall_icp`. The API owner then moved `is_recent_hire` to the
+  root (the spec was republished that way), and on 2026-10-15 moved everything again: all three
+  flags are now keys of the **`people` object** on `search.people`, `is_recent_hire` is a key of
+  `people` on `tam_by_people`, and on `search.waterfall_icp` all three are keys of **each
+  `cascade` tier** (so a cascade can try recent hires first and fall back to everyone).
+  `search.employee_finder` and both `enrichment.company_distribution_by_*` keep
+  `is_recent_hire` as a top-level argument. Since 2026-09-28 the API rejects unknown fields at
+  any depth with a `422`, so placement is load-bearing; `tests/test_filters.py` pins it from
+  both sides (keys exist on `PeopleFilter` / `CascadeTier`; they are not parameters of the
+  methods that nest them). The flags were unreleased each time they moved, so none of this is a
+  breaking change against 4.0.0. The SDK was built to the owner's stated target before the
+  spec caught up; the live spec and the 2026-10-14 changelog entry were then republished to
+  match, and a full request/response audit of all 20 routes against it came back clean
+  (re-verified 2026-10-15).
+  **(2) Past-job search**: `include_active_jobs` / `include_past_jobs` (server defaults `True` /
+  `False`), plain `bool` keys so an unset flag is omitted; `False` is a real value and is sent.
+  Both `False` is a `422`, documented and not pre-validated (same posture as the 50-entry cap).
+  **They are `search.people`-only:** the republished spec gives `tam-by-people`'s `people`
+  object `is_recent_hire` but *not* these two, and the shared `people` objects otherwise differ
+  only by `tam-by-people`'s `linkedin_url` / `min_per_company`. So they live on
+  `SearchPeopleFilter(PeopleFilter)`, not on the shared `PeopleFilter` that `TamPeopleFilter`
+  extends — otherwise `TamPeopleFilter` would offer two keys the endpoint rejects with a `422`.
+  `search.people` takes `SearchPeopleFilter | PeopleFilter`, **not** the bare child, for the
+  same structural-assignability reason as `education` (§12, PR #33 review): a declared
+  `PeopleFilter` variable is not assignable to a `TypedDict` that adds optional keys, so
+  narrowing the parameter would break every caller that reuses one. Pinned by
+  `test_search_people_accepts_every_declared_people_filter_variable`, which fails under
+  mypy/pyright if it regresses.
+  **(3) `company.mx.provider`** (`MxFilter` / `MxProviderFilter` on the
+  shared `CompanyFilter`, so `search.companies`, `search.people` and `company.tam_by_people`
+  all get it; not on `JobCompanyFilter`, which the spec doesn't declare it on). The 66-value
+  provider list is a generated enum, `MxProvider`: `gen_enums.py` maps it by the bare owning
+  property `provider`, which is the only `provider` key in the spec — if another ever appears
+  with a different value list, the divergence check raises. `MxProvider.ANY` is a sentinel
+  (every provider), not a provider; documented on `MxProviderFilter`, like `Industry.UNKNOWN`.
+  **(4) `people.education.start_year` / `end_year`**: `PeopleEducationFilter` extends
+  `KeywordFilter` (extend, don't restate) and types the years as `RangeFilter`, matching the
+  `founded_year` / `last_funding_year` precedent even though the spec types them `integer`
+  0–2100. The field is `PeopleEducationFilter | KeywordFilter`, **not** the bare child: a
+  declared `KeywordFilter` variable is not assignable to a `TypedDict` that adds optional keys
+  (structural assignability — those keys could hold anything), so narrowing it would have
+  silently broken every caller that reused a typed `KeywordFilter`. Found in review of PR #33;
+  pinned by `tests/test_filters.py`, which fails under mypy/pyright if it regresses. This is
+  the *opposite* direction to the `Tam*Filter` measurement in §5 (child where parent is
+  expected, which is accepted). **(5) `found`** added to both distribution responses (changelog 2026-09-28: `false`
+  and zero records when the company is unknown or has no current employees); the country
+  endpoint now counts people, not jobs (2026-10-14) — docstring only. **(6) `[brackets]`
+  exact match (changelog 2026-10-15)** on `job.title` (`jobs.search`, `jobs.company`,
+  `tam_by_jobs`) and `company.hq.city` / `state` (`jobs.search`, `tam_by_jobs` only): no schema
+  change, so the filters stay plain `KeywordFilter` and the string passes through untouched —
+  documented on `JobFilter` / `JobCompanyHQFilter` and pinned by a verbatim-pass-through test.
+  **(7) Full re-audit, and which SDK-only keys are deliberate.** Re-ran the request *and*
+  response comparison over all 20 JSON routes against a fresh spec: zero request differences;
+  every response difference is an SDK-only key, all of them deliberate — the `Location`
+  per-site extras and `HQ.postcode`/`street` (both recorded in §7) and `total_results` on the
+  two TAM builders (§10). `HQ.postcode`/`street` were weighed for removal as a `feat!:` and
+  deliberately **kept** (§7), so this release stays a minor.
+  **(8) `mx` on `enrichment.company` and `enrichment.email` (changelog 2026-10-15, later the
+  same day).** Re-pulled the spec: one new entry, and the audit found *two* response changes
+  though the changelog names one. `company.mx` on `enrichment.company` is documented;
+  `mx` on `enrichment.email` — at the top level **and** on every `all_emails[]` item, all
+  `required`, all nullable — is in the spec only. Added `MxRecord` (`priority`, `host`; both
+  `Optional` like every response field) and `mx: list[MxRecord] | None` on `Company`,
+  `EmailEnrichmentResponse` and `EmailMatch`. **Not a `BlitzList`**: `null` ("no data yet" /
+  "not resolved") and `[]` ("takes no mail") are different answers, so the field is the one
+  deliberate exception to the §5 rule. Fixtures use the spec's own example
+  (`priority 1`, `aspmx.l.google.com`) and keep the shared `_COMPANY` mx-free. **No SDK change
+  needed** for the other 2026-09-28 entries: the unknown-field `422` is server-side, the new
+  `422` body shape (`errors[]`) is not read (`_make_status_error` takes only `message` /
+  `error`, and `body` is passed through untouched), and the cost change is billing-side.
+  Mirror all of this in `blitz-api-js`.

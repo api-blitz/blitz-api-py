@@ -72,6 +72,10 @@ class AsyncCompanyResource:
         ``people["min_per_company"]`` to require a minimum number of matching employees
         per company.
 
+        Set ``people["is_recent_hire"]`` to count only people with a job that started in the
+        last 90 days (the job must also match your other job and company filters; a job
+        with no start date never matches).
+
         Cursor-paginated: auto-paginates over every ``{company, matched_people}`` match
         when the result is iterated; use ``.iter_pages()`` or the ``cursor=`` arg for
         manual control. When ``min_per_company`` filters heavily a page may come back

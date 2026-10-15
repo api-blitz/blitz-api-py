@@ -76,6 +76,9 @@ PROPERTY_TO_CLASS: dict[str, str] = {
     "seniority": "Seniority",
     "employment_type": "EmploymentType",
     "work_arrangement": "WorkArrangement",
+    # ``company.mx.provider`` — the only ``provider`` key in the spec, so the bare name is
+    # unambiguous; the mapping is by owning property, not by full path.
+    "provider": "MxProvider",
 }
 
 # OpenAPI/JSON-Schema keywords skipped when resolving an enum's owning property.

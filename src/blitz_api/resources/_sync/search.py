@@ -17,6 +17,7 @@ from ...types.filters import (
     PeopleCompanyFilter,
     PeopleFilter,
     SalesRegionValue,
+    SearchPeopleFilter,
 )
 from ...types.search import WaterfallIcpResponse
 from ...types.shared import Company, Person
@@ -38,12 +39,17 @@ class SearchResource:
         self,
         *,
         company: PeopleCompanyFilter | None = None,
-        people: PeopleFilter | None = None,
+        people: SearchPeopleFilter | PeopleFilter | None = None,
         max_results: int | None = None,
         cursor: str | None = None,
         timeout: TimeoutParam = None,
     ) -> CursorPage[Person]:
         """Search people across many companies, combining company and persona filters.
+
+        Which of a person's jobs are searched is set in ``people``: ``is_recent_hire``
+        (job started in the last 90 days), ``include_active_jobs`` and ``include_past_jobs``
+        (see :class:`~blitz_api.types.SearchPeopleFilter`). Your job and company filters must hold
+        in the **same** job, which is returned in ``experiences`` with ``job_is_current`` set.
 
         Auto-paginates over every matching person when the result is iterated; use
         ``.iter_pages()`` or the ``cursor=`` arg for manual control.
@@ -81,11 +87,16 @@ class SearchResource:
         job_level: list[JobLevelValue] | None = None,
         job_function: list[JobFunctionValue] | None = None,
         min_connections_count: int | None = None,
+        is_recent_hire: bool | None = None,
         max_results: int | None = None,
         page: int | None = None,
         timeout: TimeoutParam = None,
     ) -> PageNumberPage[Person]:
         """Search employees at a single company, with page-based pagination.
+
+        ``is_recent_hire=True`` keeps only people whose **current** job at the company
+        started in the last 90 days (that job must also match ``job_level`` and
+        ``job_function``; a job with no start date never matches).
 
         Auto-paginates over every matching employee; use ``.iter_pages()`` or ``page=``
         for manual control.
@@ -98,6 +109,7 @@ class SearchResource:
             "job_level": job_level,
             "job_function": job_function,
             "min_connections_count": min_connections_count,
+            "is_recent_hire": is_recent_hire,
             "max_results": max_results,
             "page": page,
         }
@@ -122,6 +134,12 @@ class SearchResource:
 
         ``profile_min_connections`` sets the minimum LinkedIn connections for a match
         (server defaults to ``0`` — i.e. **no** floor — when omitted).
+
+        Recent-hire and past-job scoping is per tier, set on each :class:`CascadeTier`:
+        ``is_recent_hire`` (job started in the last 90 days), ``include_active_jobs`` and
+        ``include_past_jobs``. With ``include_past_jobs`` a tier finds people by a job they
+        held *before* at the company; the company and that tier's title filters must then hold
+        in the **same** job, which is returned in ``experiences`` with ``job_is_current`` set.
         """
         body = {
             "company_linkedin_url": company_linkedin_url,

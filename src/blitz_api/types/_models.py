@@ -95,4 +95,11 @@ def _null_to_empty(value: Any) -> Any:
 #: a ``None`` guard. The rule is exhaustive as of 2026-09-22: the remaining plain
 #: ``list[T] = []`` fields (``allowed_apis``, ``active_plans``, ``all_emails``, ``other``,
 #: both ``distribution``s, the waterfall ``results``) are all non-nullable in the spec.
+#:
+#: **The one exception is ``mx``** (``Company.mx``, ``EmailEnrichmentResponse.mx``,
+#: ``EmailMatch.mx``), added 2026-10-15: the API documents ``null`` ("no MX data yet" /
+#: "not resolved") and ``[]`` ("the domain takes no mail") as *different answers*, so
+#: coercing one into the other would destroy information. Those fields are
+#: ``list[MxRecord] | None``. Before wrapping a new nullable list here, check that ``null``
+#: and ``[]`` are not distinguished by the spec.
 BlitzList = Annotated[list[_ItemT], BeforeValidator(_null_to_empty)]
