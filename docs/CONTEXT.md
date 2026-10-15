@@ -440,7 +440,7 @@ uv sync                              # install runtime + dev deps
 uv run ruff check . && uv run ruff format .
 uv run mypy                          # strict; includes src, tests, scripts, examples
 uv run pyright                       # strict
-uv run pytest                        # 210 tests, sync + async
+uv run pytest                        # 215 tests, sync + async
 uv run python scripts/gen_enums.py --check   # enum drift guard
 uv run python scripts/gen_sync.py --check    # sync-client/resources drift guard
 uv build                             # sdist + wheel (wheel includes py.typed)
@@ -942,13 +942,24 @@ the history rather than re-litigating it.
   any depth with a `422`, so placement is load-bearing; `tests/test_filters.py` pins it from
   both sides (keys exist on `PeopleFilter` / `CascadeTier`; they are not parameters of the
   methods that nest them). The flags were unreleased each time they moved, so none of this is a
-  breaking change against 4.0.0. The SDK follows the owner's stated target: **the live spec
-  still showed the old top-level placement when the last move landed**, so the §10 audit will
-  report the old and new keys as a mismatch until it is republished — expected, not drift.
+  breaking change against 4.0.0. The SDK was built to the owner's stated target before the
+  spec caught up; the live spec and the 2026-10-14 changelog entry were then republished to
+  match, and a full request/response audit of all 20 routes against it came back clean
+  (re-verified 2026-10-15).
   **(2) Past-job search**: `include_active_jobs` / `include_past_jobs` (server defaults `True` /
-  `False`), typed as plain `bool` keys of `PeopleFilter` and `CascadeTier` so an unset flag is
-  omitted; `False` is a real value and is sent. Both `False` is a `422`, documented and not
-  pre-validated (same posture as the 50-entry cap).
+  `False`), plain `bool` keys so an unset flag is omitted; `False` is a real value and is sent.
+  Both `False` is a `422`, documented and not pre-validated (same posture as the 50-entry cap).
+  **They are `search.people`-only:** the republished spec gives `tam-by-people`'s `people`
+  object `is_recent_hire` but *not* these two, and the shared `people` objects otherwise differ
+  only by `tam-by-people`'s `linkedin_url` / `min_per_company`. So they live on
+  `SearchPeopleFilter(PeopleFilter)`, not on the shared `PeopleFilter` that `TamPeopleFilter`
+  extends — otherwise `TamPeopleFilter` would offer two keys the endpoint rejects with a `422`.
+  `search.people` takes `SearchPeopleFilter | PeopleFilter`, **not** the bare child, for the
+  same structural-assignability reason as `education` (§12, PR #33 review): a declared
+  `PeopleFilter` variable is not assignable to a `TypedDict` that adds optional keys, so
+  narrowing the parameter would break every caller that reuses one. Pinned by
+  `test_search_people_accepts_every_declared_people_filter_variable`, which fails under
+  mypy/pyright if it regresses.
   **(3) `company.mx.provider`** (`MxFilter` / `MxProviderFilter` on the
   shared `CompanyFilter`, so `search.companies`, `search.people` and `company.tam_by_people`
   all get it; not on `JobCompanyFilter`, which the spec doesn't declare it on). The 66-value

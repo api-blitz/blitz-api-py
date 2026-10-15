@@ -19,6 +19,7 @@ from blitz_api.types import (
     PeopleCompanyFilter,
     PeopleEducationFilter,
     PeopleFilter,
+    SearchPeopleFilter,
     TamPeopleFilter,
 )
 
@@ -53,18 +54,30 @@ def test_every_filter_key_is_optional() -> None:
 _JOB_SCOPE_FLAGS = ("is_recent_hire", "include_active_jobs", "include_past_jobs")
 
 
-def test_job_scope_flags_are_keys_of_people_and_of_each_cascade_tier() -> None:
+def test_job_scope_flags_are_keys_where_the_spec_nests_them() -> None:
     # The API rejects unknown fields at any depth with a 422, so placement is load-bearing:
-    # on search.people they live in ``people``, on waterfall_icp in each ``cascade`` tier.
-    assert set(_JOB_SCOPE_FLAGS) <= set(PeopleFilter.__annotations__)
+    # inside ``people`` on search.people / tam_by_people, inside each ``cascade`` tier on
+    # waterfall_icp.
+    assert "is_recent_hire" in PeopleFilter.__annotations__  # shared by both people routes
+    assert "is_recent_hire" in TamPeopleFilter.__annotations__
+    assert set(_JOB_SCOPE_FLAGS) <= set(SearchPeopleFilter.__annotations__)
     assert set(_JOB_SCOPE_FLAGS) <= set(CascadeTier.__annotations__)
     # ...and every one is optional in a tier (only ``include_title`` is required). Checked
     # statically: ``from __future__ import annotations`` hides ``NotRequired`` from the runtime
     # ``__required_keys__``, so mypy/pyright failing on this line is the real assertion.
     minimal: CascadeTier = {"include_title": ["CEO"]}
     assert minimal == {"include_title": ["CEO"]}
-    # ``company.tam_by_people`` shares the ``people`` object.
-    assert "is_recent_hire" in TamPeopleFilter.__annotations__
+
+
+def test_past_job_flags_are_search_people_only() -> None:
+    # company.tam_by_people's ``people`` object takes is_recent_hire but NOT the past-job flags
+    # (live spec, 2026-10-15), so neither it nor the shared base may offer them -- a key the
+    # endpoint rejects with a 422 must not autocomplete.
+    for name in ("include_active_jobs", "include_past_jobs"):
+        assert name in SearchPeopleFilter.__annotations__
+        assert name not in PeopleFilter.__annotations__
+        assert name not in TamPeopleFilter.__annotations__
+    assert set(PeopleFilter.__annotations__) <= set(SearchPeopleFilter.__annotations__)
 
 
 def test_job_scope_flags_are_not_top_level_arguments_where_they_are_nested() -> None:

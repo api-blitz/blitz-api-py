@@ -15,6 +15,7 @@ from ...types.filters import (
     PeopleCompanyFilter,
     PeopleFilter,
     SalesRegionValue,
+    SearchPeopleFilter,
 )
 from ...types.search import WaterfallIcpResponse
 from ...types.shared import Company, Person
@@ -36,7 +37,7 @@ class AsyncSearchResource:
         self,
         *,
         company: PeopleCompanyFilter | None = None,
-        people: PeopleFilter | None = None,
+        people: SearchPeopleFilter | PeopleFilter | None = None,
         max_results: int | None = None,
         cursor: str | None = None,
         timeout: TimeoutParam = None,
@@ -45,7 +46,7 @@ class AsyncSearchResource:
 
         Which of a person's jobs are searched is set in ``people``: ``is_recent_hire``
         (job started in the last 90 days), ``include_active_jobs`` and ``include_past_jobs``
-        (see :class:`~blitz_api.types.PeopleFilter`). Your job and company filters must hold
+        (see :class:`~blitz_api.types.SearchPeopleFilter`). Your job and company filters must hold
         in the **same** job, which is returned in ``experiences`` with ``job_is_current`` set.
 
         Auto-paginates over every matching person when the result is iterated; use

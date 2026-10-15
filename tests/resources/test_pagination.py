@@ -9,7 +9,7 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from blitz_api import AsyncBlitzAPI, BlitzAPI, BlitzError, CursorPage
-from blitz_api.types import PeopleFilter, Person
+from blitz_api.types import Person, SearchPeopleFilter
 from tests import data
 from tests.conftest import TEST_KEY, url
 
@@ -49,7 +49,7 @@ def test_people_re_sends_recent_hire_and_job_scope_flags_on_every_page(
     httpx_mock.add_response(url=_PEOPLE, method="POST", json=data.PEOPLE_SEARCH_PAGE1)
     httpx_mock.add_response(url=_PEOPLE, method="POST", json=data.PEOPLE_SEARCH_PAGE2)
 
-    flags: PeopleFilter = {
+    flags: SearchPeopleFilter = {
         "is_recent_hire": True,
         "include_active_jobs": False,
         "include_past_jobs": True,

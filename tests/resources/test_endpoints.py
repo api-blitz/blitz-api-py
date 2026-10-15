@@ -23,8 +23,11 @@ from blitz_api.types import (
     KeyInfo,
     LastFundingType,
     MxProvider,
+    PeopleFilter,
     PersonEnrichmentResponse,
+    SearchPeopleFilter,
     Seniority,
+    TamPeopleFilter,
     WaterfallIcpResponse,
     WorkArrangement,
 )
@@ -216,6 +219,33 @@ async def test_async_search_people_serializes_recent_hire_and_job_scope_flags(
     async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
         await client.search.people(people={"is_recent_hire": True, "include_past_jobs": True})
     assert _sent_body(httpx_mock) == {"people": {"is_recent_hire": True, "include_past_jobs": True}}
+
+
+def test_search_people_accepts_every_declared_people_filter_variable(
+    httpx_mock: HTTPXMock,
+) -> None:
+    # Static regression, same shape as the ``education`` one: ``search.people`` takes
+    # ``SearchPeopleFilter | PeopleFilter``. A bare ``SearchPeopleFilter`` parameter would reject
+    # a ``PeopleFilter`` *variable* (``TypedDict`` assignability is structural and the extra
+    # optional keys could hold anything), breaking the documented type for this method.
+    # mypy/pyright fail the suite on the three calls below if that happens.
+    persona: PeopleFilter = {"job_level": [JobLevel.VP], "is_recent_hire": True}
+    tam_persona: TamPeopleFilter = {"job_level": [JobLevel.VP], "min_per_company": 2}
+    scoped: SearchPeopleFilter = {"job_level": [JobLevel.VP], "include_past_jobs": True}
+    httpx_mock.add_response(url=url("/v2/search/people"), method="POST", json=data.PEOPLE_SEARCH)
+    httpx_mock.add_response(url=url("/v2/search/people"), method="POST", json=data.PEOPLE_SEARCH)
+    httpx_mock.add_response(url=url("/v2/search/people"), method="POST", json=data.PEOPLE_SEARCH)
+
+    client = _client()
+    client.search.people(people=persona)
+    client.search.people(people=tam_persona)
+    client.search.people(people=scoped)
+
+    assert [json.loads(r.content)["people"] for r in httpx_mock.get_requests()] == [
+        {"job_level": ["VP"], "is_recent_hire": True},
+        {"job_level": ["VP"], "min_per_company": 2},
+        {"job_level": ["VP"], "include_past_jobs": True},
+    ]
 
 
 def test_search_people_serializes_mx_and_education_year_filters(httpx_mock: HTTPXMock) -> None:

@@ -232,11 +232,15 @@ class PeopleFilter(TypedDict, total=False):
     people by LinkedIn URL with ``company.tam_by_people`` (:class:`TamPeopleFilter`),
     which still accepts it.
 
-    ``is_recent_hire``, ``include_active_jobs`` and ``include_past_jobs`` are keys of *this*
-    object, not top-level arguments of ``search.people``. (Not every route is the same:
-    ``search.employee_finder`` and the two ``enrichment.company_distribution_by_*`` methods
-    take ``is_recent_hire`` as a top-level argument.) The API rejects unknown fields at any
-    depth with a ``422``, so a flag in the wrong place fails the call.
+    This is the persona criteria ``search.people`` and ``company.tam_by_people`` share;
+    :class:`SearchPeopleFilter` adds the past-job flags only ``search.people`` takes, and
+    :class:`TamPeopleFilter` adds the keys only ``company.tam_by_people`` takes.
+
+    ``is_recent_hire`` is a key of *this* object, not a top-level argument of either method.
+    (Not every route is the same: ``search.employee_finder`` and the two
+    ``enrichment.company_distribution_by_*`` methods take it as a top-level argument.) The
+    API rejects unknown fields at any depth with a ``422``, so a flag in the wrong place
+    fails the call.
     """
 
     job_title: PeopleJobTitleFilter
@@ -251,9 +255,24 @@ class PeopleFilter(TypedDict, total=False):
     # are unaffected.
     education: PeopleEducationFilter | KeywordFilter
     # Only people with a job that started in the last 90 days. The job must also match the
-    # other job and company filters; a job with no start date never matches. It covers the
-    # jobs ``include_active_jobs`` / ``include_past_jobs`` select (current jobs by default).
+    # other job and company filters; a job with no start date never matches. On
+    # ``search.people`` it covers the jobs ``include_active_jobs`` / ``include_past_jobs``
+    # select (current jobs by default); on ``company.tam_by_people``, current jobs.
     is_recent_hire: bool
+
+
+class SearchPeopleFilter(PeopleFilter, total=False):
+    """People criteria for ``search.people`` — every :class:`PeopleFilter` field plus the
+    flags that choose which of a person's jobs are searched.
+
+    ``company.tam_by_people`` does **not** take these two (its ``people`` object has only
+    ``is_recent_hire`` of the job-scope flags), which is why they are not on
+    :class:`PeopleFilter`. ``search.people`` accepts ``SearchPeopleFilter | PeopleFilter`` so
+    an existing ``PeopleFilter`` variable keeps type-checking: a ``PeopleFilter`` variable is
+    not assignable to this wider type alone (``TypedDict`` assignability is structural, and
+    the extra optional keys could hold anything).
+    """
+
     # Search the current jobs of each person (server default ``True``). Your job and company
     # filters must hold in the *same* job; that job is returned in ``experiences`` with
     # ``job_is_current`` set.
@@ -370,8 +389,10 @@ class TamPeopleFilter(PeopleFilter, total=False):
     plus ``linkedin_url`` and a per-company floor.
 
     Extends ``PeopleFilter`` for the same reason as :class:`TamJobFilter`, and because
-    the API documents this endpoint as taking *the same input as Find People*: sharing
-    the base is what keeps that true as the persona filters evolve.
+    the API documents this endpoint as taking the same persona input as Find People: sharing
+    the base is what keeps that true as the persona filters evolve. The one deliberate gap is
+    :class:`SearchPeopleFilter`'s ``include_active_jobs`` / ``include_past_jobs``, which only
+    ``search.people`` takes.
     """
 
     # Match specific people by LinkedIn URL. Still honoured here (unlike on
