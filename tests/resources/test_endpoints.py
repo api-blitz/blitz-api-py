@@ -106,6 +106,8 @@ def test_company_enrichment(httpx_mock: HTTPXMock) -> None:
     assert isinstance(result, CompanyEnrichmentResponse)
     assert result.company is not None
     assert result.company.name == "Google"
+    assert result.company.mx is not None
+    assert result.company.mx[0].host == "aspmx.l.google.com"
 
 
 def test_search_people_serializes_enums_and_drops_none(httpx_mock: HTTPXMock) -> None:

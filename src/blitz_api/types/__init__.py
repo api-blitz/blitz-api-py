@@ -82,6 +82,7 @@ from .shared import (
     Education,
     Experience,
     Location,
+    MxRecord,
     Person,
 )
 from .utils import (
@@ -97,6 +98,7 @@ __all__ = [
     "Location",
     "Company",
     "HQ",
+    "MxRecord",
     # enums
     "Industry",
     "CompanyType",

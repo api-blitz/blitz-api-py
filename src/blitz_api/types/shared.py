@@ -5,8 +5,9 @@ endpoints — e.g. ``Location`` carries ``continent``/``postal_code``/``street_a
 on a person but not on an ``Experience.job_location`` — so divergent fields are modeled
 as ``Optional`` on a single superset type rather than duplicated.
 
-Audited field-by-field against the live spec on 2026-09-22; every field here is one the
-spec returns, except the two flagged on :class:`HQ`.
+Audited field-by-field against the live spec on 2026-10-15. Every field here is one the
+spec returns at some site, except the deliberate extras recorded in ``docs/CONTEXT.md`` §7
+(``HQ.postcode`` / ``HQ.street``).
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ __all__ = [
     "Certification",
     "Person",
     "HQ",
+    "MxRecord",
     "Company",
 ]
 
@@ -139,6 +141,17 @@ class HQ(BlitzModel):
     street: str | None = None
 
 
+class MxRecord(BlitzModel):
+    """One MX record of a domain: a mail host and its priority.
+
+    A lower ``priority`` is tried first. Returned in :attr:`Company.mx` and in the ``mx`` of
+    ``enrichment.email``.
+    """
+
+    priority: int | None = None
+    host: str | None = None
+
+
 class Company(BlitzModel):
     """A company profile returned by company search and company enrichment."""
 
@@ -156,3 +169,9 @@ class Company(BlitzModel):
     hq: HQ | None = None
     domain: str | None = None
     website: str | None = None
+    #: MX records of ``domain``, lowest priority first, at most 10. **``None`` and ``[]`` mean
+    #: different things:** ``None`` is "no MX data for the domain yet", ``[]`` is "the domain
+    #: takes no mail". That is why this is not a ``BlitzList``, which would coerce ``None`` to
+    #: ``[]`` and erase the difference (``docs/CONTEXT.md`` §5). Returned by
+    #: ``enrichment.company`` only, so it is ``None`` on every other endpoint's companies.
+    mx: list[MxRecord] | None = None

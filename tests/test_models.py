@@ -18,6 +18,7 @@ from blitz_api.types import (
     Job,
     KeyInfo,
     LinkedinToDomainResponse,
+    MxRecord,
     Person,
     PersonEnrichmentResponse,
     PhoneEnrichmentResponse,
@@ -127,10 +128,19 @@ def test_company_search_parses() -> None:
 
 
 def test_company_coerces_null_lists_to_empty() -> None:
-    # ``specialties`` is the only nullable list on the model, so the caller never
-    # needs a ``None`` guard.
+    # ``specialties`` is a ``BlitzList``, so the caller never needs a ``None`` guard. (``mx`` is
+    # the one nullable list that is deliberately *not* coerced -- see the test below.)
     company = Company.model_validate(data.COMPANY_NULL_LISTS)
     assert company.specialties == []
+
+
+def test_company_mx_keeps_null_and_empty_distinct() -> None:
+    # The API gives the two cases different meanings: null = no MX data for the domain yet,
+    # [] = the domain takes no mail. A ``BlitzList`` would coerce null to [] and erase that, so
+    # ``mx`` is a plain ``list | None``.
+    assert Company.model_validate({"mx": None}).mx is None
+    assert Company.model_validate({"mx": []}).mx == []
+    assert Company.model_validate({}).mx is None  # absent: every non-enrichment endpoint
 
 
 def test_employee_finder_is_page_paginated() -> None:
@@ -249,6 +259,16 @@ def test_email_enrichment_parses() -> None:
     assert resp.found is True
     assert resp.email == "antoine@blitz-agency.com"
     assert resp.all_emails[0].email_domain == "blitz-agency.com"
+    # ``mx`` at the top level and on each candidate (the changelog only mentions
+    # ``enrichment.company``; the spec also returns it here).
+    assert resp.mx is not None and resp.mx[0].host == "aspmx.l.google.com"
+    assert resp.all_emails[0].mx is not None and resp.all_emails[0].mx[0].priority == 1
+
+
+def test_email_enrichment_mx_is_none_when_not_resolved() -> None:
+    # "Null when not resolved": must stay None, not become [].
+    resp = EmailEnrichmentResponse.model_validate({"found": False, "email": None, "mx": None})
+    assert resp.mx is None
 
 
 def test_phone_enrichment_parses() -> None:
@@ -272,6 +292,12 @@ def test_company_enrichment_parses() -> None:
     resp = CompanyEnrichmentResponse.model_validate(data.COMPANY_ENRICHMENT)
     assert resp.company is not None
     assert resp.company.domain == "google.com"
+    assert resp.company.mx is not None
+    assert [(r.priority, r.host) for r in resp.company.mx] == [
+        (1, "aspmx.l.google.com"),
+        (5, "alt1.aspmx.l.google.com"),
+    ]
+    assert isinstance(resp.company.mx[0], MxRecord)
 
 
 def test_domain_to_linkedin_parses() -> None:

@@ -239,7 +239,12 @@ Internal decisions worth preserving:
   `array | null` is a `BlitzList`, so a caller never needs a `None` guard on a list. Audited
   against the live spec on 2026-09-22 — the remaining plain `list[T] = []` fields
   (`allowed_apis`, `active_plans`, `all_emails`, `other`, both `distribution`s, the waterfall
-  `results`) are all non-nullable upstream. If you add a nullable list, use `BlitzList`.
+  `results`) are all non-nullable upstream. If you add a nullable list, use `BlitzList`
+  — **unless `null` and `[]` are different answers.** `mx` (`Company.mx`,
+  `EmailEnrichmentResponse.mx`, `EmailMatch.mx`, added 2026-10-15) is the one such field: the
+  spec and changelog say `null` means "no MX data for the domain yet" while `[]` means "the
+  domain takes no mail", so it is `list[MxRecord] | None` and a caller *should* branch on
+  `None`. Coercing would silently turn "unknown" into "has no mail server".
 - **The `Tam*Filter` request types extend their base, they don't restate it.**
   `TamJobFilter(JobFilter)` and `TamPeopleFilter(PeopleFilter)` add only the keys the TAM
   endpoints have on top of the shared criteria. This replaced a flat copy-paste convention
@@ -395,6 +400,10 @@ in 4.0.0**; `tests/test_exceptions.py` pins its absence so it is not reintroduce
   location models — would make every `Person`/`Experience`/`Job` consumer branch on which one
   it holds. Audit output will list the missing-at-this-site keys as SDK-only; that is
   expected, not drift.
+- **`Company.mx` is returned by `enrichment.company` only.** It is on the shared `Company` model
+  (superset convention, §5) so it reads `None` on `search.companies` and the TAM builders' companies,
+  whose schemas don't list it — audit output will show it SDK-only at those three sites; expected.
+  Note `null` vs `[]` are distinct there (§5).
 - **Every response schema in the spec is closed** — all 236 response object schemas carry
   `additionalProperties: false`, and most list every key as `required`. So the spec's key
   set for a response object is *exhaustive*: an SDK field absent from it is not "maybe
@@ -440,7 +449,7 @@ uv sync                              # install runtime + dev deps
 uv run ruff check . && uv run ruff format .
 uv run mypy                          # strict; includes src, tests, scripts, examples
 uv run pyright                       # strict
-uv run pytest                        # 215 tests, sync + async
+uv run pytest                        # 217 tests, sync + async
 uv run python scripts/gen_enums.py --check   # enum drift guard
 uv run python scripts/gen_sync.py --check    # sync-client/resources drift guard
 uv build                             # sdist + wheel (wheel includes py.typed)
@@ -498,7 +507,9 @@ The spec now publishes real response `properties`, so a refresh is a diff, not a
    doesn't list (`job_location.continent`/`postal_code`/`street_address`; jobs
    `location.continent`/`postal_code`/`state_code`/`street_address`), `HQ.postcode` and
    `HQ.street` at every `hq` site, and `total_results` on `tam_by_jobs`/`tam_by_people` (the
-   shared `CursorPage` declares it; those two endpoints omit it, so it stays `None`). Anything
+   shared `CursorPage` declares it; those two endpoints omit it, so it stays `None`), and `Company.mx` at
+   the three non-enrichment company sites (`results.mx` on `search.companies`, `results.company.mx` on both TAM
+   builders). Anything
    *else* that is SDK-only is a real finding.
 3. `GET https://api.blitz-api.ai/changelog/` is the narrative companion — it names the
    breaking renames and dates them, which the schema diff alone can't tell you.
@@ -988,7 +999,17 @@ the history rather than re-litigating it.
   every response difference is an SDK-only key, all of them deliberate — the `Location`
   per-site extras and `HQ.postcode`/`street` (both recorded in §7) and `total_results` on the
   two TAM builders (§10). `HQ.postcode`/`street` were weighed for removal as a `feat!:` and
-  deliberately **kept** (§7), so this release stays a minor. **No SDK change
+  deliberately **kept** (§7), so this release stays a minor.
+  **(8) `mx` on `enrichment.company` and `enrichment.email` (changelog 2026-10-15, later the
+  same day).** Re-pulled the spec: one new entry, and the audit found *two* response changes
+  though the changelog names one. `company.mx` on `enrichment.company` is documented;
+  `mx` on `enrichment.email` — at the top level **and** on every `all_emails[]` item, all
+  `required`, all nullable — is in the spec only. Added `MxRecord` (`priority`, `host`; both
+  `Optional` like every response field) and `mx: list[MxRecord] | None` on `Company`,
+  `EmailEnrichmentResponse` and `EmailMatch`. **Not a `BlitzList`**: `null` ("no data yet" /
+  "not resolved") and `[]` ("takes no mail") are different answers, so the field is the one
+  deliberate exception to the §5 rule. Fixtures use the spec's own example
+  (`priority 1`, `aspmx.l.google.com`) and keep the shared `_COMPANY` mx-free. **No SDK change
   needed** for the other 2026-09-28 entries: the unknown-field `422` is server-side, the new
   `422` body shape (`errors[]`) is not read (`_make_status_error` takes only `message` /
   `error`, and `body` is passed through untouched), and the cost change is billing-side.
