@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.0](https://github.com/api-blitz/blitz-api-py/compare/v4.0.0...v4.1.0) (2026-10-15)
+
+
+### Features
+
+* sync the SDK to the 2026-09-28 → 2026-10-15 API releases ([#33](https://github.com/api-blitz/blitz-api-py/issues/33)) ([260320b](https://github.com/api-blitz/blitz-api-py/commit/260320bdedfeff466702c9d80e24ee21920ef450))
+
 ## [4.0.0](https://github.com/api-blitz/blitz-api-py/compare/v3.0.0...v4.0.0) (2026-09-22)
 
 
