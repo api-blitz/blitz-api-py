@@ -242,7 +242,12 @@ class PeopleFilter(TypedDict, total=False):
     job_level: list[JobLevelValue]
     min_connections: int
     location: PeopleLocationFilter
-    education: PeopleEducationFilter
+    # ``| KeywordFilter`` is deliberate: this field was a ``KeywordFilter`` before it gained
+    # year ranges, and a ``KeywordFilter`` *variable* is not assignable to the wider
+    # ``PeopleEducationFilter`` alone (its extra optional keys could hold any type). The union
+    # keeps that existing usage compiling; dict literals and ``PeopleEducationFilter`` variables
+    # are unaffected.
+    education: PeopleEducationFilter | KeywordFilter
 
 
 class CascadeTier(TypedDict):

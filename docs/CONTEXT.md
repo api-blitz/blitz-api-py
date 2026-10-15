@@ -952,7 +952,13 @@ the history rather than re-litigating it.
   **(4) `people.education.start_year` / `end_year`**: `PeopleEducationFilter` extends
   `KeywordFilter` (extend, don't restate) and types the years as `RangeFilter`, matching the
   `founded_year` / `last_funding_year` precedent even though the spec types them `integer`
-  0–2100. **(5) `found`** added to both distribution responses (changelog 2026-09-28: `false`
+  0–2100. The field is `PeopleEducationFilter | KeywordFilter`, **not** the bare child: a
+  declared `KeywordFilter` variable is not assignable to a `TypedDict` that adds optional keys
+  (structural assignability — those keys could hold anything), so narrowing it would have
+  silently broken every caller that reused a typed `KeywordFilter`. Found in review of PR #33;
+  pinned by `tests/test_filters.py`, which fails under mypy/pyright if it regresses. This is
+  the *opposite* direction to the `Tam*Filter` measurement in §5 (child where parent is
+  expected, which is accepted). **(5) `found`** added to both distribution responses (changelog 2026-09-28: `false`
   and zero records when the company is unknown or has no current employees); the country
   endpoint now counts people, not jobs (2026-10-14) — docstring only. **(6) `[brackets]`
   exact match (changelog 2026-10-15)** on `job.title` (`jobs.search`, `jobs.company`,

@@ -67,3 +67,26 @@ def test_people_education_filter_extends_the_keyword_filter() -> None:
     assert set(KeywordFilter.__annotations__) <= set(PeopleEducationFilter.__annotations__)
     assert {"start_year", "end_year"} <= set(PeopleEducationFilter.__annotations__)
     assert PeopleEducationFilter.__required_keys__ == frozenset()
+
+
+def test_a_reused_keyword_filter_variable_is_still_accepted_as_education() -> None:
+    # Regression for a *static* check: ``mypy`` / ``pyright`` fail this file if it stops
+    # type-checking. ``people.education`` was a ``KeywordFilter`` before it gained year ranges,
+    # and a ``KeywordFilter`` *variable* is not assignable to the wider ``PeopleEducationFilter``
+    # alone -- ``TypedDict`` assignability is structural and its extra optional keys could carry
+    # any type -- so the field must keep accepting the old type too. (The reverse direction,
+    # a declared child where the parent is expected, is the one the ``Tam*`` docstrings measure.)
+    education: KeywordFilter = {"include": ["Stanford"]}
+    people: PeopleFilter = {"education": education}
+    tam: TamPeopleFilter = {"education": education}
+    assert people["education"] is education
+    assert tam["education"] is education
+
+    # ...and the new type still works as a declared variable and as a dict literal.
+    dated: PeopleEducationFilter = {"include": ["Stanford"], "end_year": {"min": 2015}}
+    people_dated: PeopleFilter = {"education": dated}
+    assert people_dated["education"] is dated
+    literal: PeopleFilter = {"education": {"include": ["MIT"], "start_year": {"max": 2020}}}
+    literal_education = literal.get("education")
+    assert literal_education is not None
+    assert literal_education.get("include") == ["MIT"]
