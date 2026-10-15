@@ -9,7 +9,7 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from blitz_api import AsyncBlitzAPI, BlitzAPI, BlitzError, CursorPage
-from blitz_api.types import Person
+from blitz_api.types import PeopleFilter, Person
 from tests import data
 from tests.conftest import TEST_KEY, url
 
@@ -41,24 +41,25 @@ def test_cursor_auto_paginates_items(httpx_mock: HTTPXMock) -> None:
     assert json.loads(requests[1].content)["cursor"] == "next-cursor"
 
 
-def test_people_re_sends_top_level_flags_on_every_page(httpx_mock: HTTPXMock) -> None:
-    # ``is_recent_hire`` and the job-scope flags are top-level body fields, so the next page
-    # must carry them forward or page 2 would silently drop the filter.
+def test_people_re_sends_recent_hire_and_job_scope_flags_on_every_page(
+    httpx_mock: HTTPXMock,
+) -> None:
+    # The flags are keys of ``people``, which the next-page body carries forward; page 2 must
+    # not silently drop the recent-hire / past-job scoping.
     httpx_mock.add_response(url=_PEOPLE, method="POST", json=data.PEOPLE_SEARCH_PAGE1)
     httpx_mock.add_response(url=_PEOPLE, method="POST", json=data.PEOPLE_SEARCH_PAGE2)
 
-    list(
-        _client().search.people(
-            is_recent_hire=True, include_active_jobs=False, include_past_jobs=True, max_results=1
-        )
-    )
+    flags: PeopleFilter = {
+        "is_recent_hire": True,
+        "include_active_jobs": False,
+        "include_past_jobs": True,
+    }
+    list(_client().search.people(people=flags, max_results=1))
 
     requests = httpx_mock.get_requests()
     assert len(requests) == 2
-    flags = {"is_recent_hire": True, "include_active_jobs": False, "include_past_jobs": True}
     for request in requests:
-        body = json.loads(request.content)
-        assert {k: body[k] for k in flags} == flags
+        assert json.loads(request.content)["people"] == flags
 
 
 def test_cursor_stops_when_cursor_is_null(httpx_mock: HTTPXMock) -> None:

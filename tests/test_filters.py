@@ -8,7 +8,11 @@ between a caller and a query that quietly matched on the wrong criteria.
 
 from __future__ import annotations
 
+import inspect
+
+from blitz_api import BlitzAPI
 from blitz_api.types import (
+    CascadeTier,
     CompanyFilter,
     JobCompanyFilter,
     KeywordFilter,
@@ -46,12 +50,39 @@ def test_every_filter_key_is_optional() -> None:
         assert filter_type.__required_keys__ == frozenset(), filter_type.__name__
 
 
-def test_is_recent_hire_is_not_a_filter_key() -> None:
-    # ``is_recent_hire`` is a top-level body field on every route that takes it. The API
-    # rejects unknown fields at any depth with a 422, so a ``people.is_recent_hire`` key would
-    # turn a typo-free call into an error: it must not be typeable on the people object.
-    for filter_type in (PeopleFilter, TamPeopleFilter, PeopleEducationFilter):
-        assert "is_recent_hire" not in filter_type.__annotations__, filter_type.__name__
+_JOB_SCOPE_FLAGS = ("is_recent_hire", "include_active_jobs", "include_past_jobs")
+
+
+def test_job_scope_flags_are_keys_of_people_and_of_each_cascade_tier() -> None:
+    # The API rejects unknown fields at any depth with a 422, so placement is load-bearing:
+    # on search.people they live in ``people``, on waterfall_icp in each ``cascade`` tier.
+    assert set(_JOB_SCOPE_FLAGS) <= set(PeopleFilter.__annotations__)
+    assert set(_JOB_SCOPE_FLAGS) <= set(CascadeTier.__annotations__)
+    # ...and every one is optional in a tier (only ``include_title`` is required). Checked
+    # statically: ``from __future__ import annotations`` hides ``NotRequired`` from the runtime
+    # ``__required_keys__``, so mypy/pyright failing on this line is the real assertion.
+    minimal: CascadeTier = {"include_title": ["CEO"]}
+    assert minimal == {"include_title": ["CEO"]}
+    # ``company.tam_by_people`` shares the ``people`` object.
+    assert "is_recent_hire" in TamPeopleFilter.__annotations__
+
+
+def test_job_scope_flags_are_not_top_level_arguments_where_they_are_nested() -> None:
+    client = BlitzAPI(api_key="k")
+    for method in (client.search.people, client.company.tam_by_people, client.search.waterfall_icp):
+        params = set(inspect.signature(method).parameters)
+        assert not params & set(_JOB_SCOPE_FLAGS), method.__name__
+
+
+def test_is_recent_hire_is_still_a_top_level_argument_on_the_other_routes() -> None:
+    # employee_finder and both company distributions take it at the root, not in a filter.
+    client = BlitzAPI(api_key="k")
+    for method in (
+        client.search.employee_finder,
+        client.enrichment.company_distribution_by_country,
+        client.enrichment.company_distribution_by_department,
+    ):
+        assert "is_recent_hire" in inspect.signature(method).parameters, method.__name__
 
 
 def test_mx_filter_is_on_every_company_filter_that_takes_it() -> None:

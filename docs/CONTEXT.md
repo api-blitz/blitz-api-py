@@ -929,20 +929,27 @@ the history rather than re-litigating it.
   entries; the SDK had last synced on 2026-09-22). Request-side audit against the live spec found
   exactly the 2026-10-14 additions and nothing else; response-side found only `found` on the
   two distribution responses.
-  **(1) `is_recent_hire` is a top-level argument on all six routes that take it** —
-  `search.people`, `company.tam_by_people`, `search.employee_finder`, `search.waterfall_icp` and
-  both `enrichment.company_distribution_by_*`. The API owner moved it out of the `people`
-  object on the first two routes (to sit beside `max_results`, like the other four); the SDK
-  was written to that target before the spec caught up, and the live spec was republished
-  with it at the root on all six routes the same day, and the 2026-10-14 changelog entry was
-  reworded to match (re-verified 2026-10-15). It is deliberately
-  **not** a key of `PeopleFilter`/`TamPeopleFilter` (pinned in `tests/test_filters.py`): since
-  2026-09-28 the API rejects unknown fields at any depth with a `422`, so a nested key would
-  break the call rather than be ignored. **(2) Past-job search**: `include_active_jobs` /
-  `include_past_jobs` on `search.people` and `search.waterfall_icp`, passed as `bool | None` so
-  an unset flag is omitted and the server defaults (`True` / `False`) apply; `False` is a real
-  value and is sent. Both `False` is a `422`, documented and not pre-validated (same posture as
-  the 50-entry cap). **(3) `company.mx.provider`** (`MxFilter` / `MxProviderFilter` on the
+  **(1) Where the job-scope flags live is per route — and `is_recent_hire` has moved twice in two
+  days; read this before touching it.** `is_recent_hire` first shipped nested in `people` on
+  `search.people` / `tam_by_people`, with `include_active_jobs` / `include_past_jobs` top-level
+  on `search.people` and `search.waterfall_icp`. The API owner then moved `is_recent_hire` to the
+  root (the spec was republished that way), and on 2026-10-15 moved everything again: all three
+  flags are now keys of the **`people` object** on `search.people`, `is_recent_hire` is a key of
+  `people` on `tam_by_people`, and on `search.waterfall_icp` all three are keys of **each
+  `cascade` tier** (so a cascade can try recent hires first and fall back to everyone).
+  `search.employee_finder` and both `enrichment.company_distribution_by_*` keep
+  `is_recent_hire` as a top-level argument. Since 2026-09-28 the API rejects unknown fields at
+  any depth with a `422`, so placement is load-bearing; `tests/test_filters.py` pins it from
+  both sides (keys exist on `PeopleFilter` / `CascadeTier`; they are not parameters of the
+  methods that nest them). The flags were unreleased each time they moved, so none of this is a
+  breaking change against 4.0.0. The SDK follows the owner's stated target: **the live spec
+  still showed the old top-level placement when the last move landed**, so the §10 audit will
+  report the old and new keys as a mismatch until it is republished — expected, not drift.
+  **(2) Past-job search**: `include_active_jobs` / `include_past_jobs` (server defaults `True` /
+  `False`), typed as plain `bool` keys of `PeopleFilter` and `CascadeTier` so an unset flag is
+  omitted; `False` is a real value and is sent. Both `False` is a `422`, documented and not
+  pre-validated (same posture as the 50-entry cap).
+  **(3) `company.mx.provider`** (`MxFilter` / `MxProviderFilter` on the
   shared `CompanyFilter`, so `search.companies`, `search.people` and `company.tam_by_people`
   all get it; not on `JobCompanyFilter`, which the spec doesn't declare it on). The 66-value
   provider list is a generated enum, `MxProvider`: `gen_enums.py` maps it by the bare owning

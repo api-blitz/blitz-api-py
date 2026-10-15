@@ -232,9 +232,11 @@ class PeopleFilter(TypedDict, total=False):
     people by LinkedIn URL with ``company.tam_by_people`` (:class:`TamPeopleFilter`),
     which still accepts it.
 
-    ``is_recent_hire`` is deliberately not a key here either: it is a **top-level** argument
-    of ``search.people`` and ``company.tam_by_people``, next to ``max_results`` — not a field
-    of this object. The API rejects unknown fields at any depth with a ``422``.
+    ``is_recent_hire``, ``include_active_jobs`` and ``include_past_jobs`` are keys of *this*
+    object, not top-level arguments of ``search.people``. (Not every route is the same:
+    ``search.employee_finder`` and the two ``enrichment.company_distribution_by_*`` methods
+    take ``is_recent_hire`` as a top-level argument.) The API rejects unknown fields at any
+    depth with a ``422``, so a flag in the wrong place fails the call.
     """
 
     job_title: PeopleJobTitleFilter
@@ -248,6 +250,18 @@ class PeopleFilter(TypedDict, total=False):
     # keeps that existing usage compiling; dict literals and ``PeopleEducationFilter`` variables
     # are unaffected.
     education: PeopleEducationFilter | KeywordFilter
+    # Only people with a job that started in the last 90 days. The job must also match the
+    # other job and company filters; a job with no start date never matches. It covers the
+    # jobs ``include_active_jobs`` / ``include_past_jobs`` select (current jobs by default).
+    is_recent_hire: bool
+    # Search the current jobs of each person (server default ``True``). Your job and company
+    # filters must hold in the *same* job; that job is returned in ``experiences`` with
+    # ``job_is_current`` set.
+    include_active_jobs: bool
+    # Also search the past jobs of each person (server default ``False``). A person is returned
+    # once, with the matched job; a current job is preferred to a past one. Setting both
+    # ``include_*_jobs`` flags to ``False`` is a ``422``.
+    include_past_jobs: bool
 
 
 class CascadeTier(TypedDict):
@@ -256,12 +270,28 @@ class CascadeTier(TypedDict):
     Only ``include_title`` is required; the server defaults ``location`` to worldwide
     and ``include_headline_search`` to ``False`` when omitted. The ``cascade`` list is
     capped at **10 tiers**, and each tier at 50 title phrases.
+
+    ``is_recent_hire``, ``include_active_jobs`` and ``include_past_jobs`` are per-tier keys,
+    not arguments of ``search.waterfall_icp``: each tier can scope its own search, so a
+    cascade can try recent hires first and fall back to everyone.
     """
 
     include_title: list[str]
     location: NotRequired[list[str]]
     include_headline_search: NotRequired[bool]
     exclude_title: NotRequired[list[str]]
+    # Only people whose job at the company started in the last 90 days. It covers the jobs
+    # this tier's ``include_active_jobs`` / ``include_past_jobs`` select (current jobs by
+    # default), and that job must also match the tier's title filters; a job with no start
+    # date never matches.
+    is_recent_hire: NotRequired[bool]
+    # Search the current jobs of each person (server default ``True``). The company and the
+    # tier's title filters must hold in the same job; it is returned in ``experiences`` with
+    # ``job_is_current`` set.
+    include_active_jobs: NotRequired[bool]
+    # Also search the jobs a person held *before* at the company (server default ``False``).
+    # A person is returned once. Both ``include_*_jobs`` flags ``False`` is a ``422``.
+    include_past_jobs: NotRequired[bool]
 
 
 class SeniorityFilter(TypedDict, total=False):

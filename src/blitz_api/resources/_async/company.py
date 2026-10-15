@@ -60,7 +60,6 @@ class AsyncCompanyResource:
         *,
         company: PeopleCompanyFilter | None = None,
         people: TamPeopleFilter | None = None,
-        is_recent_hire: bool | None = None,
         max_results: int | None = None,
         cursor: str | None = None,
         timeout: TimeoutParam = None,
@@ -73,9 +72,9 @@ class AsyncCompanyResource:
         ``people["min_per_company"]`` to require a minimum number of matching employees
         per company.
 
-        ``is_recent_hire=True`` counts only people with a job that started in the last 90
-        days (the job must also match your other job and company filters; a job with no
-        start date never matches). It is a top-level argument, not a key of ``people``.
+        Set ``people["is_recent_hire"]`` to count only people with a job that started in the
+        last 90 days (the job must also match your other job and company filters; a job
+        with no start date never matches).
 
         Cursor-paginated: auto-paginates over every ``{company, matched_people}`` match
         when the result is iterated; use ``.iter_pages()`` or the ``cursor=`` arg for
@@ -84,13 +83,7 @@ class AsyncCompanyResource:
         result returned**; bound spend with ``max_items`` on ``.collect()`` /
         ``.auto_paging_iter()``.
         """
-        body = {
-            "company": company,
-            "people": people,
-            "is_recent_hire": is_recent_hire,
-            "max_results": max_results,
-            "cursor": cursor,
-        }
+        body = {"company": company, "people": people, "max_results": max_results, "cursor": cursor}
         return await self._client._request(
             "POST",
             _TAM_BY_PEOPLE,

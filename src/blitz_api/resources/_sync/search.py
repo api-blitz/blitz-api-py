@@ -39,37 +39,21 @@ class SearchResource:
         *,
         company: PeopleCompanyFilter | None = None,
         people: PeopleFilter | None = None,
-        is_recent_hire: bool | None = None,
-        include_active_jobs: bool | None = None,
-        include_past_jobs: bool | None = None,
         max_results: int | None = None,
         cursor: str | None = None,
         timeout: TimeoutParam = None,
     ) -> CursorPage[Person]:
         """Search people across many companies, combining company and persona filters.
 
-        ``is_recent_hire=True`` keeps only people with a job that started in the last 90
-        days (the job must also match your other job and company filters; a job with no
-        start date never matches). It is a top-level argument, not a key of ``people``.
-
-        ``include_active_jobs`` (server default ``True``) and ``include_past_jobs`` (server
-        default ``False``) choose which of a person's jobs are searched. Your job and company
-        filters must then hold in the **same** job; that job is returned in ``experiences``
-        with ``job_is_current`` set, and a person is returned once (a current job is
-        preferred to a past one). Setting both to ``False`` is a ``422``.
+        Which of a person's jobs are searched is set in ``people``: ``is_recent_hire``
+        (job started in the last 90 days), ``include_active_jobs`` and ``include_past_jobs``
+        (see :class:`~blitz_api.types.PeopleFilter`). Your job and company filters must hold
+        in the **same** job, which is returned in ``experiences`` with ``job_is_current`` set.
 
         Auto-paginates over every matching person when the result is iterated; use
         ``.iter_pages()`` or the ``cursor=`` arg for manual control.
         """
-        body = {
-            "company": company,
-            "people": people,
-            "is_recent_hire": is_recent_hire,
-            "include_active_jobs": include_active_jobs,
-            "include_past_jobs": include_past_jobs,
-            "max_results": max_results,
-            "cursor": cursor,
-        }
+        body = {"company": company, "people": people, "max_results": max_results, "cursor": cursor}
         return self._client._request(
             "POST", _PEOPLE, body=body, cast_to=CursorPage[Person], timeout=timeout
         )
@@ -142,9 +126,6 @@ class SearchResource:
         company_linkedin_url: str,
         cascade: list[CascadeTier],
         profile_min_connections: int | None = None,
-        is_recent_hire: bool | None = None,
-        include_active_jobs: bool | None = None,
-        include_past_jobs: bool | None = None,
         max_results: int | None = None,
         timeout: TimeoutParam = None,
     ) -> WaterfallIcpResponse:
@@ -153,25 +134,16 @@ class SearchResource:
         ``profile_min_connections`` sets the minimum LinkedIn connections for a match
         (server defaults to ``0`` — i.e. **no** floor — when omitted).
 
-        ``include_active_jobs`` (server default ``True``) and ``include_past_jobs`` (server
-        default ``False``) choose which of a person's jobs are searched. Set
-        ``include_past_jobs=True`` to find people by a job they held *before* at the company;
-        the company and a cascade's title filters must then hold in the **same** job, and that
-        job is returned in ``experiences`` with ``job_is_current`` set. A person is returned
-        once. Setting both to ``False`` is a ``422``.
-
-        ``is_recent_hire=True`` keeps only people whose job at the company started in the
-        last 90 days, in every cascade. It covers whichever jobs the two flags above select
-        (current jobs by default) and the job must also match the cascade title filters; a
-        job with no start date never matches.
+        Recent-hire and past-job scoping is per tier, set on each :class:`CascadeTier`:
+        ``is_recent_hire`` (job started in the last 90 days), ``include_active_jobs`` and
+        ``include_past_jobs``. With ``include_past_jobs`` a tier finds people by a job they
+        held *before* at the company; the company and that tier's title filters must then hold
+        in the **same** job, which is returned in ``experiences`` with ``job_is_current`` set.
         """
         body = {
             "company_linkedin_url": company_linkedin_url,
             "cascade": cascade,
             "profile_min_connections": profile_min_connections,
-            "is_recent_hire": is_recent_hire,
-            "include_active_jobs": include_active_jobs,
-            "include_past_jobs": include_past_jobs,
             "max_results": max_results,
         }
         return self._client._request(

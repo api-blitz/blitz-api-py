@@ -183,26 +183,30 @@ async def test_async_search_people_serializes_company_linkedin_url(httpx_mock: H
     }
 
 
-def test_search_people_serializes_recent_hire_and_job_scope_flags_at_top_level(
+def test_search_people_serializes_recent_hire_and_job_scope_flags_inside_people(
     httpx_mock: HTTPXMock,
 ) -> None:
-    # ``is_recent_hire`` sits next to ``max_results``, NOT inside ``people`` (the API rejects
+    # The three flags are keys of ``people`` -- NOT top-level arguments (the API rejects
     # unknown fields at any depth with a 422). ``False`` is a real value, so it is sent.
     httpx_mock.add_response(url=url("/v2/search/people"), method="POST", json=data.PEOPLE_SEARCH)
     _client().search.people(
-        people={"job_level": [JobLevel.VP]},
-        is_recent_hire=True,
-        include_active_jobs=False,
-        include_past_jobs=True,
+        people={
+            "job_level": [JobLevel.VP],
+            "is_recent_hire": True,
+            "include_active_jobs": False,
+            "include_past_jobs": True,
+        },
     )
     body = _sent_body(httpx_mock)
     assert body == {
-        "people": {"job_level": ["VP"]},
-        "is_recent_hire": True,
-        "include_active_jobs": False,
-        "include_past_jobs": True,
+        "people": {
+            "job_level": ["VP"],
+            "is_recent_hire": True,
+            "include_active_jobs": False,
+            "include_past_jobs": True,
+        },
     }
-    assert "is_recent_hire" not in body["people"]
+    assert not {"is_recent_hire", "include_active_jobs", "include_past_jobs"} & body.keys()
 
 
 async def test_async_search_people_serializes_recent_hire_and_job_scope_flags(
@@ -210,8 +214,8 @@ async def test_async_search_people_serializes_recent_hire_and_job_scope_flags(
 ) -> None:
     httpx_mock.add_response(url=url("/v2/search/people"), method="POST", json=data.PEOPLE_SEARCH)
     async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
-        await client.search.people(is_recent_hire=True, include_past_jobs=True)
-    assert _sent_body(httpx_mock) == {"is_recent_hire": True, "include_past_jobs": True}
+        await client.search.people(people={"is_recent_hire": True, "include_past_jobs": True})
+    assert _sent_body(httpx_mock) == {"people": {"is_recent_hire": True, "include_past_jobs": True}}
 
 
 def test_search_people_serializes_mx_and_education_year_filters(httpx_mock: HTTPXMock) -> None:
@@ -456,16 +460,22 @@ def test_company_tam_by_people_serializes_recent_hire_and_new_filters(
     )
     _client().company.tam_by_people(
         company={"mx": {"provider": {"exclude": [MxProvider.ANY]}}},
-        people={"education": {"end_year": {"min": 2022, "max": 2025}}, "min_per_company": 3},
-        is_recent_hire=True,
+        people={
+            "education": {"end_year": {"min": 2022, "max": 2025}},
+            "min_per_company": 3,
+            "is_recent_hire": True,
+        },
     )
     body = _sent_body(httpx_mock)
     assert body == {
         "company": {"mx": {"provider": {"exclude": ["any"]}}},
-        "people": {"education": {"end_year": {"min": 2022, "max": 2025}}, "min_per_company": 3},
-        "is_recent_hire": True,
+        "people": {
+            "education": {"end_year": {"min": 2022, "max": 2025}},
+            "min_per_company": 3,
+            "is_recent_hire": True,
+        },
     }
-    assert "is_recent_hire" not in body["people"]
+    assert "is_recent_hire" not in body  # a key of ``people``, not a top-level argument
 
 
 async def test_async_company_tam_by_people(httpx_mock: HTTPXMock) -> None:
@@ -486,8 +496,8 @@ async def test_async_company_tam_by_people_serializes_is_recent_hire(
         url=url("/v2/company/tam-by-people"), method="POST", json=data.TAM_BY_PEOPLE
     )
     async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
-        await client.company.tam_by_people(is_recent_hire=True)
-    assert _sent_body(httpx_mock) == {"is_recent_hire": True}
+        await client.company.tam_by_people(people={"is_recent_hire": True})
+    assert _sent_body(httpx_mock) == {"people": {"is_recent_hire": True}}
 
 
 def test_changelog_list_public_get_with_query_params(httpx_mock: HTTPXMock) -> None:
@@ -556,24 +566,38 @@ def test_waterfall_icp(httpx_mock: HTTPXMock) -> None:
     assert not {"is_recent_hire", "include_active_jobs", "include_past_jobs"} & body.keys()
 
 
-def test_waterfall_icp_serializes_past_job_flags_and_is_recent_hire(httpx_mock: HTTPXMock) -> None:
+def test_waterfall_icp_serializes_job_scope_flags_per_cascade_tier(httpx_mock: HTTPXMock) -> None:
+    # The flags live on each tier, so one cascade can try recent hires first and fall back to
+    # everyone. They are not arguments of ``waterfall_icp`` itself.
     httpx_mock.add_response(
         url=url("/v2/search/waterfall-icp-keyword"), method="POST", json=data.WATERFALL_ICP
     )
     _client().search.waterfall_icp(
         company_linkedin_url="https://www.linkedin.com/company/openai",
-        cascade=[{"include_title": ["CEO"]}],
-        is_recent_hire=True,
-        include_active_jobs=False,
-        include_past_jobs=True,
+        cascade=[
+            {
+                "include_title": ["CEO"],
+                "is_recent_hire": True,
+                "include_active_jobs": False,
+                "include_past_jobs": True,
+            },
+            {"include_title": ["CTO"]},
+        ],
     )
-    assert _sent_body(httpx_mock) == {
+    body = _sent_body(httpx_mock)
+    assert body == {
         "company_linkedin_url": "https://www.linkedin.com/company/openai",
-        "cascade": [{"include_title": ["CEO"]}],
-        "is_recent_hire": True,
-        "include_active_jobs": False,
-        "include_past_jobs": True,
+        "cascade": [
+            {
+                "include_title": ["CEO"],
+                "is_recent_hire": True,
+                "include_active_jobs": False,
+                "include_past_jobs": True,
+            },
+            {"include_title": ["CTO"]},
+        ],
     }
+    assert not {"is_recent_hire", "include_active_jobs", "include_past_jobs"} & body.keys()
 
 
 def test_current_date(httpx_mock: HTTPXMock) -> None:
