@@ -11,7 +11,7 @@ requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Blitz API", email = "founders@blitz-api.ai" }]
-keywords = ["blitz", "blitz-api", "b2b", "enrichment", "linkedin", "sales", "gtm", "sdk"]
+keywords = ["blitz", "blitz-api", "b2b", "enrichment", "sales", "gtm", "sdk"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
