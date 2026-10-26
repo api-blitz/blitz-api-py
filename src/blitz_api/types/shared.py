@@ -95,8 +95,8 @@ class Person(BlitzModel):
     full_name: str | None = None
     nickname: str | None = None
     civility_title: str | None = None
-    #: Built from the person's first position as ``"<job title> | @<employer>"``, not
-    #: the free-text headline written on the LinkedIn profile.
+    #: Built from the first entry of ``experiences`` (the matched position on the searches)
+    #: as ``"<job title> | @<employer>"``, not the free-text headline on the LinkedIn profile.
     headline: str | None = None
     about_me: str | None = None
     location: Location | None = None
@@ -104,12 +104,11 @@ class Person(BlitzModel):
     connections_count: int | None = None
     #: Always ``None`` since 2026-09-15; the API keeps the key so clients don't break.
     profile_picture_url: str | None = None
-    #: Positions from the person's profile, in profile order. **How many** positions land
-    #: here depends on the endpoint, and upstream currently contradicts itself for
-    #: ``search.people``: the changelog entry of 2026-09-21 says it returns only the
-    #: position that matched your filters, while the docs still say the whole career.
-    #: ``enrichment.person`` returns the whole career either way. Read ``job_is_current``
-    #: rather than assuming index 0 is the current role.
+    #: Positions from the person's profile. ``search.people``, ``search.employee_finder`` and
+    #: ``search.waterfall_icp`` return exactly one: the position that matched, which can be a
+    #: past one with ``include_past_jobs`` (read ``job_is_current``). ``enrichment.person``,
+    #: ``enrichment.email_to_person`` and ``enrichment.phone_to_person`` return the whole
+    #: career, in profile order.
     experiences: BlitzList[Experience] = []
     education: BlitzList[Education] = []
     skills: BlitzList[str] = []

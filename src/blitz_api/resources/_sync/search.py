@@ -98,6 +98,10 @@ class SearchResource:
         started in the last 90 days (that job must also match ``job_level`` and
         ``job_function``; a job with no start date never matches).
 
+        Each list is capped at 50 entries (a longer one is a ``422``). ``country_code``
+        defaults to ``["WORLD"]`` server-side: a list holding ``"WORLD"`` drops the country
+        filter. ``min_connections_count`` runs 0-500 (``0`` = no lower bound).
+
         Auto-paginates over every matching employee; use ``.iter_pages()`` or ``page=``
         for manual control.
         """
@@ -140,6 +144,11 @@ class SearchResource:
         ``include_past_jobs``. With ``include_past_jobs`` a tier finds people by a job they
         held *before* at the company; the company and that tier's title filters must then hold
         in the **same** job, which is returned in ``experiences`` with ``job_is_current`` set.
+
+        Each tier's ``location`` takes the same object as ``people.location`` on
+        ``search.people`` (:class:`~blitz_api.types.PeopleLocationFilter`): a person must match
+        every field you set, and leaving it out searches the whole world. Here each list takes
+        at most 10 values (a longer one is a ``422``).
         """
         body = {
             "company_linkedin_url": company_linkedin_url,

@@ -28,18 +28,30 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
 - **Base URL**: `https://api.blitz-api.ai`
 - **Auth**: `x-api-key` HTTP header (NOT `Authorization`). Key from
   [app.blitz-api.ai](https://app.blitz-api.ai).
-- **Rate limit**: 10 req/s **per endpoint** on all plans (each endpoint has its own
-  budget); plans created before 2026-09-30 run at 50 req/s. Per-key value in
-  `key-info.max_requests_per_seconds` and, live, in `fair_usage.rate_limit`. The SDK's
-  client-side default stays at **5 rps** — half the cap, per the vendor's own SDK docs.
+- **Rate limit**: set by the plan — 5 req/s on the free trial, 10 on Start, 25 on Scale,
+  custom on Build Your Infra; plans created before 2026-09-30 run at 50 — and counted
+  **per account and per endpoint** over a 1-second window (every key of the account shares
+  it; each endpoint has its own budget). The account's value is in
+  `key-info.max_requests_per_seconds` (may be `"unlimited"`) and, live, in
+  `fair_usage.rate_limit`. The SDK's client-side default stays at **5 rps**, the free-trial
+  limit.
 - **OpenAPI**: 3.1.0. `https://api.blitz-api.ai/openapi` reports `info.version` `1.0.0`;
   the docs-site mirror (`docs.blitz-api.ai/api-reference/v2.openapi.json`) says `2.0.0`.
   They are two different documents — the live endpoint is the one `gen_enums.py --fetch`
   reads and the one to audit against. All endpoints are `/v2/...`.
-- **Status conventions**: 401 invalid/missing key · 402 insufficient records ·
-  404 key not found · 422 invalid request body (e.g. a filter list over 50 entries, or
-  `null` on a required field) · 429 rate limited (official client waits 60 s then
-  retries) · 5xx server error.
+- **Status conventions**: 400 body that is not valid JSON (the SDK always sends JSON) ·
+  401 invalid/missing key, or a valid key without access to the route · 402 insufficient
+  records · 404 unknown path, or key-info found no billing account (`"Customer not found"`);
+  an unknown key is a 401 · 422 invalid request body (e.g. a filter list over its cap,
+  `null` on a required field, or since 2026-09-28 an unknown field at any depth), with body
+  `{success: false, message, errors: [{field, message}]}` — `message` sums up the first
+  three problems, `errors` lists up to 20, each with its full field path · 423 account
+  locked (`{blocked: true, message}`) · 429 rate limited (the SDK waits `Retry-After`, 1 s
+  from the API; 60 s if absent, capped at 120 s) · 503 search temporarily unavailable on
+  the ten search, jobs, TAM and company-distribution endpoints (`{success: false, found: false, message}`, nothing
+  charged, retriable) · 5xx server error. No special-casing in the SDK: 422 and 423 are
+  non-retried `APIStatusError`s (`err.body["errors"]` holds the field list), and 503 retries
+  as a `ServerError`.
 
 ### Endpoint → method → response model (all 21)
 
@@ -297,9 +309,8 @@ Internal decisions worth preserving:
   the Blitz docs' per-rolling-second wording and the official reference client. A token
   bucket was rejected: its initial capacity lets a fresh client fire `rps` requests *and*
   refill within the first second, briefly doubling the rate — the exact pattern the docs say
-  triggers 429 on bulk runs. Default 5 rps — deliberately **half** the API's current
-  10 rps/endpoint cap, which is what the vendor's own SDK docs prescribe, and which leaves
-  throughput on the table for anyone who raises it to their key's
+  triggers 429 on bulk runs. Default 5 rps — the free-trial limit (Start is 10, Scale 25),
+  which leaves throughput on the table for anyone who raises it to their key's
   `max_requests_per_seconds`. `rate_limit_rps=None` disables it.
   (Auto-detecting the limit from `key-info` on first call was considered but not
   implemented — would add a surprise network call on construction.)
@@ -387,8 +398,8 @@ in 4.0.0**; `tests/test_exceptions.py` pins its absence so it is not reintroduce
 - **Generated enum member names** are an upper-snake slug of the value
   (`"IT Services and IT Consulting"` → `IT_SERVICES_AND_IT_CONSULTING`); collisions
   get a numeric suffix. The `.value` is always the exact API string.
-- **`waterfall_icp` response shape came from the docs**, not the spec (its OpenAPI
-  example is `null`). Shape: `{results: [{icp, ranking, person}]}`.
+- **`waterfall_icp` response shape came from the docs** when it was modelled (its OpenAPI
+  example was `null`); the live spec now types it. Shape: `{results: [{icp, ranking, person}]}`.
 - **`Company.linkedin_id` is an int**; `Person`/`Experience` linkedin ids are strings.
 - **`Location` is one superset model over three differently-sized spec sites — the extras
   are deliberate.** `Person.location` carries all six keys (`city`, `state_code`,
@@ -404,11 +415,14 @@ in 4.0.0**; `tests/test_exceptions.py` pins its absence so it is not reintroduce
   (superset convention, §5) so it reads `None` on `search.companies` and the TAM builders' companies,
   whose schemas don't list it — audit output will show it SDK-only at those three sites; expected.
   Note `null` vs `[]` are distinct there (§5).
-- **Every response schema in the spec is closed** — all 236 response object schemas carry
-  `additionalProperties: false`, and most list every key as `required`. So the spec's key
-  set for a response object is *exhaustive*: an SDK field absent from it is not "maybe
-  undocumented", it provably cannot be returned. That makes a full model audit mechanical;
-  see the §10 playbook.
+- **Response schemas in the spec are closed, except around `Person`** — 238 of the 245
+  response object schemas carry `additionalProperties: false`, and most list every key as
+  `required`. So the spec's key set for those objects is *exhaustive*: an SDK field absent
+  from it is not "maybe undocumented", it provably cannot be returned. The 7 open ones are
+  the `Person` objects (`search.people` / `employee_finder` results, `person` on
+  `enrichment.person` and the two reverse lookups) and the waterfall result items and their
+  `person`: the API may send keys there that the spec doesn't list, which `extra="allow"`
+  keeps. That makes a full model audit mechanical; see the §10 playbook.
 - **`HQ.postcode` and `HQ.street` are deliberate extras — keep them.** The spec lists neither:
   every `hq` object in the live spec — `search.companies`, `enrichment.company`, `tam_by_jobs`,
   `tam_by_people` — has exactly `city`/`state`/`country_code`/`country_name`/`region`/
@@ -430,9 +444,11 @@ in 4.0.0**; `tests/test_exceptions.py` pins its absence so it is not reintroduce
   (`"Bachelor of Science, Industrial Engineering"`). Removed outright, no alias — the
   spec-faithful precedent; `extra="allow"` keeps any stray value reachable.
 - **`Person.headline` is derived**, not the profile's free-text headline: the API builds it
-  from the first position as `"<job title> | @<employer>"`.
-- **Search filter lists are capped at 50 entries** server-side (422 past that), and
-  `waterfall_icp`'s `cascade` at 10 tiers. A `RangeFilter` whose `min` exceeds its `max`
+  from the first entry of `experiences` (the matched position on the searches) as
+  `"<job title> | @<employer>"`.
+- **Search filter lists are capped at 50 entries** server-side (422 past that), except the
+  lists in a `waterfall_icp` tier's `location`, capped at 10 (2026-10-20); `cascade` itself
+  is capped at 10 tiers. A `RangeFilter` whose `min` exceeds its `max`
   is also a 422 as of 2026-09-16 (`max: 0` still means unbounded). Documented in
   `filters.py`, not enforced — the SDK doesn't pre-validate list lengths or range
   ordering (same posture as the advisory enum typing).
@@ -552,7 +568,7 @@ the very first `0.1.0`, see the first-release note in `CONTRIBUTING.md`.
 
 - No streaming and no built-in response caching. (Per-call `timeout=` IS supported.)
 - Rate limiter does not auto-detect the per-key limit from `key-info` (defaults to 5 rps,
-  half the API's 10 rps/endpoint cap; legacy keys are allowed 50).
+  the free-trial limit; Start is 10, Scale 25, legacy plans 50).
 - Client-side rate limiting is per process: it mirrors the server's per-endpoint limit for
   one client, but multiple processes sharing an endpoint's budget can still exceed it and
   rely on the 429 retry path (see §5).
@@ -865,7 +881,8 @@ the history rather than re-litigating it.
   encoding a plausible-but-unsourced fact (see (6) below). What #30 asked for that *is*
   unambiguous shipped instead: the README now routes a reader who needs the whole career to
   `enrichment.person`, which is correct under either reading. **Still an open question for the
-  API owner; resolve and then state it plainly.** Note `blitz-api-js` **does** assert the narrow
+  API owner; resolve and then state it plainly.** — *Settled 2026-10-26 by the API code; see
+  that entry below.* Note `blitz-api-js` **does** assert the narrow
   side in its README (PR #23) — a live divergence, filed as an issue on that repo.
   **(5) Smaller fixes.** `TamJobFilter`/`TamPeopleFilter` docstrings claimed inheritance makes
   `jobs.search` / `search.people` "keep rejecting" the extra keys — true for dict literals
@@ -1014,3 +1031,15 @@ the history rather than re-litigating it.
   `422` body shape (`errors[]`) is not read (`_make_status_error` takes only `message` /
   `error`, and `body` is passed through untouched), and the cost change is billing-side.
   Mirror all of this in `blitz-api-js`.
+- **2026-10-26** — Synced to the API code and the 2026-10-20 changelog entry.
+  **(1) `CascadeTier.location` is `PeopleLocationFilter | list[str]`.** Since 2026-10-20 a
+  tier's `location` is the `people.location` object of `search.people`, each list capped at 10;
+  the bare list of country codes is the legacy form, still accepted, so it stays in the union
+  rather than breaking existing callers. Same type in `blitz-api-js`.
+  **(2) `experiences[]` on the searches is settled by the code**, closing the open question of
+  2026-09-22 (4): `search.people`, `search.employee_finder` and `search.waterfall_icp` each
+  pass one job per person, the one that matched, and `headline` is built from it.
+  **(3) Docs only:** the rate limit is per plan and per account (§2); the `422` body's
+  `errors[]` and the `423` locked-account response are documented in the README rather than
+  given their own exception classes; `company_distribution_by_department` counts current jobs,
+  not people.

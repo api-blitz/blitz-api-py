@@ -119,7 +119,11 @@ class APIStatusError(BlitzError):
 
 
 class AuthenticationError(APIStatusError):
-    """401 — the API key is missing or invalid."""
+    """401 — the API key is missing or invalid, or valid but without access to this endpoint
+    (``"You do not have access to this route"``).
+
+    A locked account gets a ``423`` instead, raised as a plain :class:`APIStatusError`.
+    """
 
 
 class InsufficientRecordsError(APIStatusError):
@@ -131,7 +135,8 @@ class InsufficientRecordsError(APIStatusError):
 
 
 class NotFoundError(APIStatusError):
-    """404 — the API key or resource does not exist."""
+    """404 — unknown path, or ``account.key_info`` found no billing account
+    (``"Customer not found"``). An unknown key is a ``401``."""
 
 
 class RateLimitError(APIStatusError):

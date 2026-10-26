@@ -23,9 +23,10 @@ and step-by-step playbooks). This file is just the quick rules.
 - **Responses are hand-written models, but the spec — not an example — is the source of
   truth.** This used to say response schemas were example-only; that is no longer true and
   following it produced three phantom `Company` fields. The live spec now publishes real
-  response `properties` on 20 of the 21 endpoints (only `GET /changelog/` is still
-  example-only), and **every** response object schema is `additionalProperties: false` (236
-  of 236). So the spec's key set is *exhaustive*: a field absent from it is not "maybe
+  response `properties` on all 21 endpoints, and 238 of its 245 response object schemas are
+  `additionalProperties: false`. The 7 open ones are the `Person` objects and the waterfall
+  result items, where the API may send keys the spec doesn't list. Everywhere else the spec's
+  key set is *exhaustive*: a field absent from it is not "maybe
   undocumented", it provably cannot be returned. Before adding or keeping a response field,
   check it against the live spec — never against a fixture in `tests/data.py`, which proves
   only that you wrote the fixture. Audit playbook in `docs/CONTEXT.md` §10.

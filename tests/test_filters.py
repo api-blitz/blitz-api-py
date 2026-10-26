@@ -1,9 +1,8 @@
 """Tests that the request-filter ``TypedDict``\\s carry the keys their endpoint accepts.
 
-These pin the *splits* — where one endpoint honours a filter key and a sibling
-accepts-then-silently-ignores it. Request schemas are open (no ``additionalProperties:
-false``), so the API never rejects the extra key; the type is the only thing standing
-between a caller and a query that quietly matched on the wrong criteria.
+These pin the *splits* — where one endpoint honours a filter key and a sibling rejects
+it with a ``422`` (since 2026-09-28; it used to accept and silently ignore it). The type
+catches the mistake before the request is sent.
 """
 
 from __future__ import annotations

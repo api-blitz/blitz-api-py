@@ -142,7 +142,9 @@ class CompanyDistributionByCountryResponse(BlitzResponse):
 class CompanyDistributionByDepartmentItem(BlitzModel):
     """Employee count for a single department (Blitz job function).
 
-    Employees with no classified department are counted under ``"Other"``.
+    ``count`` counts current jobs at the company, not people, once per current job: a person
+    with two current jobs there counts twice in ``total_employees`` (once in each job's
+    department). Jobs with no classified department are counted under ``"Other"``.
     ``percentage_ratio`` is the bucket's share of ``total_employees`` (0-100, to 2
     decimals).
     """
@@ -156,6 +158,10 @@ class CompanyDistributionByDepartmentResponse(BlitzResponse):
     """Result of ``enrichment.company_distribution_by_department``.
 
     Served by ``POST /v2/enrichment/company-distribution-by-department``.
+
+    ``total_employees`` counts current jobs at the company, not people (a person with two
+    current jobs there counts twice), so it can exceed the one from
+    ``enrichment.company_distribution_by_country``.
 
     ``found`` is ``False`` (and the call costs no records) when the company is unknown or
     has no current employees.

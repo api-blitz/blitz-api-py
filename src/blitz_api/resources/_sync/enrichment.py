@@ -175,10 +175,15 @@ class EnrichmentResource:
     ) -> CompanyDistributionByDepartmentResponse:
         """Get a company's employee count broken down by department.
 
-        Employees with no classified department are counted under ``"Other"``.
+        Counts current **jobs** at the company, not people, once per current job: a person with
+        two current jobs there counts twice in ``total_employees`` (once in each job's
+        department), so ``total_employees`` can exceed the one from
+        ``company_distribution_by_country``.
 
-        ``is_recent_hire=True`` counts only people whose current job at the company started
-        in the last 90 days (a job with no start date is not counted).
+        Jobs with no classified department are counted under ``"Other"``.
+
+        ``is_recent_hire=True`` counts only the current jobs at the company that started in the
+        last 90 days (a job with no start date is not counted).
         """
         return self._client._request(
             "POST",
