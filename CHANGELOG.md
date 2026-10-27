@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.2.0](https://github.com/api-blitz/blitz-api-py/compare/v4.1.0...v4.2.0) (2026-10-27)
+
+
+### Features
+
+* sync with the 2026-10-20 API release ([00fb319](https://github.com/api-blitz/blitz-api-py/commit/00fb31984488fa64561dd23e136963dd0eaea7e1))
+* sync with the 2026-10-20 API release ([aba0662](https://github.com/api-blitz/blitz-api-py/commit/aba066208f802d07b1a9fc1a44fd1e023c835e2c))
+
 ## [4.1.0](https://github.com/api-blitz/blitz-api-py/compare/v4.0.0...v4.1.0) (2026-10-15)
 
 
