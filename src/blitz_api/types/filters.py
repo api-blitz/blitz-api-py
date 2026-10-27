@@ -6,8 +6,9 @@ fields accept either an enum member (autocompleted, e.g. ``Industry.BANKING``) o
 a raw string, so power users are never blocked.
 
 All keys are optional unless noted; omit a filter to leave it unset. The search
-endpoints cap every filter list at **50 entries** — a longer list is rejected with a
-``422``, so split a bigger inclusion/exclusion set across several requests.
+endpoints cap every filter list at **50 entries** (10 in a waterfall tier's ``location``,
+see :class:`CascadeTier`) — a longer list is rejected with a ``422``, so split a bigger
+inclusion/exclusion set across several requests.
 """
 
 from __future__ import annotations
@@ -143,7 +144,7 @@ class CompanyFilter(TypedDict, total=False):
     ``company.tam_by_people``.
 
     ``linkedin_url`` is deliberately **not** here: only the people-side endpoints honour
-    it, and ``search.companies`` accepts-then-ignores it. See :class:`PeopleCompanyFilter`.
+    it, and ``search.companies`` rejects it with a ``422``. See :class:`PeopleCompanyFilter`.
     """
 
     name: KeywordFilter
@@ -176,11 +177,9 @@ class PeopleCompanyFilter(CompanyFilter, total=False):
     Extending, rather than leaving ``linkedin_url`` on the shared filter, keeps it off
     ``search.companies``: the live spec declares it on the ``company`` object of
     ``/v2/search/people`` and ``/v2/company/tam-by-people`` but **not**
-    ``/v2/search/companies``, and request schemas are open (no ``additionalProperties:
-    false``), so that endpoint accepts the key and silently returns results for your other
-    criteria. That is the same accepted-but-ignored failure mode that got ``linkedin_url``
-    removed from :class:`PeopleFilter`, and the same split as :class:`TamPeopleFilter` over
-    :class:`PeopleFilter`.
+    ``/v2/search/companies``, which rejects the key with a ``422`` naming the field (since
+    2026-09-28; it used to be accepted and ignored). Same split as :class:`TamPeopleFilter`
+    over :class:`PeopleFilter`.
 
     The assignability caveat on :class:`TamJobFilter` applies verbatim: this only rejects a
     ``search.companies`` call site that passes a *dict literal* carrying ``linkedin_url``.
@@ -202,9 +201,12 @@ class PeopleJobTitleFilter(TypedDict, total=False):
 
 
 class PeopleLocationFilter(TypedDict, total=False):
-    """Location filter for the people side of a people search."""
+    """Location filter for the people side of a people search, and for each waterfall tier
+    (:class:`CascadeTier`). A person must match every field you set.
+    """
 
     city: KeywordFilter
+    # Codes such as ``"FR"`` or ``"GB"`` (2-3 letters, any case).
     country_code: list[str]
     continent: list[ContinentValue]
     sales_region: list[SalesRegionValue]
@@ -227,9 +229,8 @@ class PeopleFilter(TypedDict, total=False):
     """People search criteria for ``search.people``.
 
     ``linkedin_url`` is deliberately absent: ``/v2/search/people`` stopped honouring it
-    on 2026-09-11 (the request still succeeds, but the filter is *ignored*, so you get
-    results for your other criteria instead of the people you asked for). Match specific
-    people by LinkedIn URL with ``company.tam_by_people`` (:class:`TamPeopleFilter`),
+    on 2026-09-11, and since 2026-09-28 rejects it with a ``422`` naming the field. Match
+    specific people by LinkedIn URL with ``company.tam_by_people`` (:class:`TamPeopleFilter`),
     which still accepts it.
 
     This is the persona criteria ``search.people`` and ``company.tam_by_people`` share;
@@ -246,6 +247,7 @@ class PeopleFilter(TypedDict, total=False):
     job_title: PeopleJobTitleFilter
     job_function: list[JobFunctionValue]
     job_level: list[JobLevelValue]
+    # Smallest LinkedIn connection count (0-500, ``0`` = no lower bound); above 500 is a ``422``.
     min_connections: int
     location: PeopleLocationFilter
     # ``| KeywordFilter`` is deliberate: this field was a ``KeywordFilter`` before it gained
@@ -286,9 +288,16 @@ class SearchPeopleFilter(PeopleFilter, total=False):
 class CascadeTier(TypedDict):
     """One tier of a waterfall ICP cascade, tried in order until results are found.
 
-    Only ``include_title`` is required; the server defaults ``location`` to worldwide
-    and ``include_headline_search`` to ``False`` when omitted. The ``cascade`` list is
-    capped at **10 tiers**, and each tier at 50 title phrases.
+    Only ``include_title`` is required; the server defaults ``include_headline_search`` to
+    ``False`` when omitted. The ``cascade`` list is capped at **10 tiers**, and each tier at
+    50 title phrases.
+
+    ``location`` takes the same object as ``people.location`` on ``search.people``
+    (:class:`PeopleLocationFilter`): a person must match every field you set, and leaving it
+    out searches the whole world. Each list in it takes at most **10 values**; a longer list
+    is a ``422``. A plain list of country codes (``["US", "CA"]``) is the legacy form, still
+    accepted: it is read as ``country_code``, with the same 10-code cap, and a list holding
+    ``"WORLD"`` turns the location filter off.
 
     ``is_recent_hire``, ``include_active_jobs`` and ``include_past_jobs`` are per-tier keys,
     not arguments of ``search.waterfall_icp``: each tier can scope its own search, so a
@@ -296,7 +305,7 @@ class CascadeTier(TypedDict):
     """
 
     include_title: list[str]
-    location: NotRequired[list[str]]
+    location: NotRequired[PeopleLocationFilter | list[str]]
     include_headline_search: NotRequired[bool]
     exclude_title: NotRequired[list[str]]
     # Only people whose job at the company started in the last 90 days. It covers the jobs

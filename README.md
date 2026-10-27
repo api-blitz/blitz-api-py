@@ -131,24 +131,22 @@ later are preserved):
 ```python
 Person(
     full_name="Jordan Lee",
-    # Derived from the first position as "<job title> | @<employer>" — not the
+    # Derived from the matched position as "<job title> | @<employer>" — not the
     # free-text headline written on the LinkedIn profile.
     headline="VP of Engineering | @Acme",
     linkedin_url="https://www.linkedin.com/in/example-person",
     location=Location(city="San Francisco", state_code="CA", country_code="US", continent="North America"),
-    # Positions from the profile, in profile order — read `job_is_current` for the
-    # current role rather than assuming index 0.
+    # Only the position that matched your filters — `job_is_current` says whether it
+    # is current (past jobs are searched only with `include_past_jobs`).
     experiences=[Experience(job_title="VP of Engineering", company_name="Acme", job_is_current=True)],
     # first_name, last_name, skills, education, certifications, … also present
 )
 ```
 
-**How many positions land in `experiences[]` depends on the endpoint** — and upstream
-currently contradicts itself for `search.people`: the changelog entry of 2026-09-21 says
-it returns only the position that matched your filters, while the API reference still
-says it returns the full position history. Don't rely on either from a search result. If
-you need the person's whole career in profile order, `enrichment.person` returns it
-unambiguously (1 record on success, free on a miss):
+**How many positions land in `experiences[]` depends on the endpoint.** `search.people`,
+`search.employee_finder` and `search.waterfall_icp` return one row per person, with only
+the position that matched. If you need the person's whole career in profile order,
+`enrichment.person` returns it (1 record on success, free on a miss):
 
 ```python
 if person.linkedin_url:  # optional on Person; the call requires a str
@@ -347,13 +345,14 @@ client = BlitzAPI(
 The client-side rate limiter is a sliding window — at most `rate_limit_rps` requests
 in any rolling second — applied **per endpoint**: each endpoint (e.g. `.email` vs
 `.phone`) is throttled independently, mirroring the API's own limit, which is also per
-endpoint (10 req/s on every plan — 50 on plans created before 2026-09-30; check yours
-via `client.account.key_info().max_requests_per_seconds`). The default `5.0`
-deliberately sits at half the *lowest* cap — raise it to your key's limit to use the
-full budget. A single
+endpoint and set by your plan (5 req/s on the free trial, 10 on Start, 25 on Scale,
+custom on Build Your Infra; 50 on plans created before 2026-09-30). The API counts it per
+account, so every API key of the account shares it; check yours via
+`client.account.key_info().max_requests_per_seconds`. The default `5.0` is the free-trial
+limit — raise it to your key's limit to use the full budget. A single
 client instance therefore stays under the limit on every endpoint, so a burst on one
-never blocks another. Across multiple processes — which share an endpoint's budget — you
-may still hit `429`; the retry path handles that.
+never blocks another. Across multiple processes (or several keys of one account) — which
+share an endpoint's budget — you may still hit `429`; the retry path handles that.
 
 Every method also accepts a per-call `timeout` (seconds or an `httpx.Timeout`) when one
 endpoint needs longer than the client default:
@@ -376,7 +375,7 @@ try:
 except InsufficientRecordsError as err:
     ...                            # 402 — out of records; err.fair_usage.next_reset_at
 except AuthenticationError:
-    ...                            # 401 — bad key
+    ...                            # 401 — missing/invalid key, or no access to this endpoint
 except APIStatusError as err:
     print(err.status_code, err.message, err.body)
 except APIResponseValidationError:
@@ -386,9 +385,15 @@ except BlitzError:
 ```
 
 `429` and `5xx` are retried automatically (with backoff) up to `max_retries`;
-`401`/`402`/`404` raise immediately. Connect timeouts and connection errors are retried,
+`401`/`402`/`404`/`422`/`423` raise immediately. Connect timeouts and connection errors are retried,
 but a **read timeout is not** — the server may already have processed (and billed) the
 request, so it surfaces as `APITimeoutError` rather than risking a double charge.
+
+An invalid request body (including an unknown field at any depth) raises `APIStatusError`
+with `status_code == 422`: `err.message` sums up the first three problems, and
+`err.body["errors"]` lists up to 20 of them, each as `{"field": ..., "message": ...}` with the
+full field path and what to fix. A locked account gets `423`
+(`{"blocked": true, "message": ...}`), also raised as `APIStatusError`.
 
 ## Forward compatibility
 
