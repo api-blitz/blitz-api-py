@@ -122,6 +122,7 @@ def test_company_search_parses() -> None:
     company = resp.results[0]
     assert company.name == "Google"
     assert company.linkedin_id == 1441
+    assert company.revenue_range == "$10M-$50M"
     assert company.hq is not None
     assert company.hq.region == "NORAM"
     assert company.specialties == ["search", "cloud"]

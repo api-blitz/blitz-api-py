@@ -99,11 +99,18 @@ def test_is_recent_hire_is_still_a_top_level_argument_on_the_other_routes() -> N
 
 
 def test_mx_filter_is_on_every_company_filter_that_takes_it() -> None:
-    # company.mx is declared on search.companies, search.people and company.tam_by_people
-    # (the three CompanyFilter users) -- not on the job-side company filter.
+    # company.mx is declared on all company filters, including the job-side filter
+    # added by the 2026-10-26 API release.
     assert "mx" in CompanyFilter.__annotations__
     assert "mx" in PeopleCompanyFilter.__annotations__  # inherited, not restated
-    assert "mx" not in JobCompanyFilter.__annotations__
+    assert "mx" in JobCompanyFilter.__annotations__
+
+
+def test_recent_job_filter_fields_are_available_on_their_routes() -> None:
+    # Added by the 2026-10-26 API release: job description filtering for people and
+    # MX-provider filtering for the company behind a job.
+    assert "job_description" in PeopleFilter.__annotations__
+    assert "mx" in JobCompanyFilter.__annotations__
 
 
 def test_people_education_filter_extends_the_keyword_filter() -> None:

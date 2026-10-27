@@ -163,6 +163,7 @@ class Company(BlitzModel):
     industry: str | None = None
     type: str | None = None
     size: str | None = None
+    revenue_range: str | None = None
     employees_on_linkedin: int | None = None
     followers: int | None = None
     founded_year: int | None = None

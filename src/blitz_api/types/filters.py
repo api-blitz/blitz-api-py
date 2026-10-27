@@ -244,6 +244,7 @@ class PeopleFilter(TypedDict, total=False):
     """
 
     job_title: PeopleJobTitleFilter
+    job_description: KeywordFilter
     job_function: list[JobFunctionValue]
     job_level: list[JobLevelValue]
     min_connections: int
@@ -436,3 +437,4 @@ class JobCompanyFilter(TypedDict, total=False):
     size: CompanySizeFilter
     keywords: KeywordFilter
     hq: JobCompanyHQFilter
+    mx: MxFilter
