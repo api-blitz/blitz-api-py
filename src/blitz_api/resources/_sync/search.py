@@ -14,6 +14,7 @@ from ...types.filters import (
     ContinentValue,
     JobFunctionValue,
     JobLevelValue,
+    KeywordFilter,
     PeopleCompanyFilter,
     PeopleFilter,
     SalesRegionValue,
@@ -86,6 +87,8 @@ class SearchResource:
         sales_region: list[SalesRegionValue] | None = None,
         job_level: list[JobLevelValue] | None = None,
         job_function: list[JobFunctionValue] | None = None,
+        job_title: KeywordFilter | None = None,
+        job_description: KeywordFilter | None = None,
         min_connections_count: int | None = None,
         is_recent_hire: bool | None = None,
         max_results: int | None = None,
@@ -94,11 +97,23 @@ class SearchResource:
     ) -> PageNumberPage[Person]:
         """Search employees at a single company, with page-based pagination.
 
-        ``is_recent_hire=True`` keeps only people whose **current** job at the company
-        started in the last 90 days (that job must also match ``job_level`` and
-        ``job_function``; a job with no start date never matches).
+        ``job_level``, ``job_function``, ``job_title``, ``job_description`` and
+        ``is_recent_hire`` must all hold in the same job: the person's **current** job at
+        the company.
 
-        Each list is capped at 50 entries (a longer one is a ``422``). ``country_code``
+        ``job_title`` and ``job_description`` each take ``include`` / ``exclude`` lists of
+        phrases. A title matches when it has every word of at least one ``include`` phrase;
+        wrap a phrase in brackets (``"[Head of Sales]"``) to match the whole title exactly,
+        ignoring case and accents. A description matches when every word of a phrase appears
+        in it, in any order (only its first 10,000 characters are searched); brackets give
+        no exact match there. ``exclude`` drops a job that matches any phrase, and
+        ``job_description["exclude"]`` never drops a job with no description.
+
+        ``is_recent_hire=True`` keeps only people whose job started in the last 90 days (a
+        job with no start date never matches).
+
+        Each list is capped at 50 entries, except ``job_description["exclude"]`` (20); a
+        longer one is a ``422``. ``country_code``
         defaults to ``["WORLD"]`` server-side: a list holding ``"WORLD"`` drops the country
         filter. ``min_connections_count`` runs 0-500 (``0`` = no lower bound).
 
@@ -112,6 +127,8 @@ class SearchResource:
             "sales_region": sales_region,
             "job_level": job_level,
             "job_function": job_function,
+            "job_title": job_title,
+            "job_description": job_description,
             "min_connections_count": min_connections_count,
             "is_recent_hire": is_recent_hire,
             "max_results": max_results,

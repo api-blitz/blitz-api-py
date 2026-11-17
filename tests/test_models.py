@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
+from pydantic import ValidationError
+
 from blitz_api import CursorPage, PageNumberPage
 from blitz_api.types import (
     ChangelogEntry,
@@ -15,6 +18,7 @@ from blitz_api.types import (
     Education,
     EmailEnrichmentResponse,
     EmailToPersonResponse,
+    Experience,
     Job,
     KeyInfo,
     LinkedinToDomainResponse,
@@ -97,6 +101,14 @@ def test_people_search_parses_nested_person() -> None:
     assert exp.job_location.city == "Sunnyvale"
     assert exp.job_contract_type == "Full-time"
     assert exp.job_work_arrangement == "Hybrid"
+    # Months in each position, current and past. Asserted against the model too:
+    # ``extra="allow"`` would keep the value even if the field were not declared.
+    assert [e.job_duration_months for e in person.experiences] == [20, 26]
+    assert "job_duration_months" in Experience.model_fields
+    # ``None``: no start date, or a past position with no end date.
+    assert Experience.model_validate({"job_duration_months": None}).job_duration_months is None
+    with pytest.raises(ValidationError):
+        Experience.model_validate({"job_duration_months": "twenty"})
     # The field of study is folded into ``degree``; there is no ``field_of_study``.
     assert person.education[0].degree == "Bachelor of Science, Computer Science"
     assert person.education[0].school_name == "Stanford University"
