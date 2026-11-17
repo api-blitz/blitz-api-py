@@ -54,6 +54,7 @@ class Industry(str, Enum):
     ARCHITECTURAL_AND_STRUCTURAL_METAL_MANUFACTURING = 'Architectural and Structural Metal Manufacturing'
     ARCHITECTURE_AND_PLANNING = 'Architecture and Planning'
     ARMED_FORCES = 'Armed Forces'
+    ARTIFICIAL_INTELLIGENCE = 'Artificial Intelligence'
     ARTIFICIAL_RUBBER_AND_SYNTHETIC_FIBER_MANUFACTURING = 'Artificial Rubber and Synthetic Fiber Manufacturing'
     ARTISTS_AND_WRITERS = 'Artists and Writers'
     ARTS_AND_CRAFTS = 'Arts and Crafts'

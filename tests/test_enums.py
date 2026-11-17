@@ -27,7 +27,7 @@ def test_industry_is_a_str_enum() -> None:
 
 
 def test_industry_has_full_taxonomy() -> None:
-    assert len(list(Industry)) == 535
+    assert len(list(Industry)) == 536
 
 
 def test_industry_has_the_unknown_bucket() -> None:
