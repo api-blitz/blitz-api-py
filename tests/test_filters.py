@@ -13,11 +13,17 @@ from blitz_api import BlitzAPI
 from blitz_api.types import (
     CascadeTier,
     CompanyFilter,
+    CompanyHQFilter,
+    ContinentFilter,
+    CountryCodeFilter,
     JobCompanyFilter,
     KeywordFilter,
     PeopleCompanyFilter,
     PeopleEducationFilter,
     PeopleFilter,
+    PeopleLocationFilter,
+    SalesRegion,
+    SalesRegionFilter,
     SearchPeopleFilter,
     TamPeopleFilter,
 )
@@ -99,10 +105,52 @@ def test_is_recent_hire_is_still_a_top_level_argument_on_the_other_routes() -> N
 
 def test_mx_filter_is_on_every_company_filter_that_takes_it() -> None:
     # company.mx is declared on search.companies, search.people and company.tam_by_people
-    # (the three CompanyFilter users) -- not on the job-side company filter.
+    # (the three CompanyFilter users) and, since 2026-10-26, on the job-side company filter
+    # of jobs.search and company.tam_by_jobs.
     assert "mx" in CompanyFilter.__annotations__
     assert "mx" in PeopleCompanyFilter.__annotations__  # inherited, not restated
-    assert "mx" not in JobCompanyFilter.__annotations__
+    assert "mx" in JobCompanyFilter.__annotations__
+
+
+def test_job_description_is_on_the_shared_people_filter() -> None:
+    # Both search.people and company.tam_by_people take people.job_description, so it is on
+    # the base filter and the two endpoint filters inherit it.
+    assert "job_description" in PeopleFilter.__annotations__
+    assert "job_description" in SearchPeopleFilter.__annotations__
+    assert "job_description" in TamPeopleFilter.__annotations__
+
+
+def test_geo_filters_take_include_and_exclude() -> None:
+    for geo_filter in (CountryCodeFilter, ContinentFilter, SalesRegionFilter):
+        assert set(geo_filter.__annotations__) == {"include", "exclude"}, geo_filter.__name__
+        assert geo_filter.__required_keys__ == frozenset()
+
+
+def test_geo_filters_accept_the_object_and_the_plain_list() -> None:
+    # A *static* check: ``mypy`` / ``pyright`` fail this file if either form stops
+    # type-checking. The dict with include / exclude is the current form; the plain list is
+    # the legacy form, which the API still reads as ``include``.
+    hq: CompanyHQFilter = {
+        "country_code": {"include": ["US", "CA"], "exclude": ["GB"]},
+        "continent": {"exclude": ["Antarctica"]},
+        "sales_region": {"include": [SalesRegion.NORAM]},
+    }
+    hq_lists: CompanyHQFilter = {
+        "country_code": ["FR", "DE"],
+        "continent": ["Europe"],
+        "sales_region": [SalesRegion.EMEA],
+    }
+    location: PeopleLocationFilter = {
+        "country_code": {"exclude": ["FR"]},
+        "continent": {"include": ["Europe"]},
+        "sales_region": {"exclude": ["APAC"]},
+    }
+    location_lists: PeopleLocationFilter = {"country_code": ["US"], "sales_region": ["NORAM"]}
+    tier: CascadeTier = {"include_title": ["CEO"], "location": location}
+    assert hq["country_code"] == {"include": ["US", "CA"], "exclude": ["GB"]}
+    assert hq_lists["country_code"] == ["FR", "DE"]
+    assert tier["location"] is location
+    assert location_lists["country_code"] == ["US"]
 
 
 def test_people_education_filter_extends_the_keyword_filter() -> None:

@@ -231,7 +231,8 @@ Internal decisions worth preserving:
   `Optional` because the public `/changelog/` endpoint isn't metered (and old recorded
   payloads predate the rollout). `FairUsage.rate_limit` is `Optional` for the same honest
   reason: the API omits it on `account.key-info`, which is not rate limited. The block is
-  also attached to `402` bodies, so `APIStatusError.fair_usage` parses it there
+  also attached to every JSON error body (since 2026-11-17; before, only to `402`), with
+  only `records_used` and `request_id` always set, so `APIStatusError.fair_usage` parses it there
   (`_parse_fair_usage` never raises — a malformed block yields `None` rather than masking
   the API's own error).
 - **`null` list fields are coerced to `[]` by a type, not a validator.** The spec types a
@@ -1065,3 +1066,24 @@ the history rather than re-litigating it.
   (`people.job_description` on `search.people` / `tam_by_people`, `company.mx` on
   `jobs.search` / `tam_by_jobs`, and `revenue_range` on companies) are still to sync in both
   SDKs.
+- **2026-11-18** — Synced the 2026-11-17 changelog entries and the three 2026-10-26 entries
+  against the live spec. **(1) Geo filters take `include` / `exclude`.** `country_code`,
+  `continent` and `sales_region` on `CompanyHQFilter` and `PeopleLocationFilter` (so also in a
+  waterfall tier's `location`) are `CountryCodeFilter | list[str]`,
+  `ContinentFilter | list[ContinentValue]` and `SalesRegionFilter | list[SalesRegionValue]`.
+  The plain list stays on the union because the changelog says a list is still read as
+  `include`, though the spec now shows only the object: the same choice as
+  `CascadeTier.location`. Existing calls keep type-checking. `search.employee_finder` keeps
+  its plain list arguments (it has no `exclude`). **(2) Country codes have two letters** on
+  the people, company, waterfall and employee-finder filters: `UK` is read as `GB`, `WORLD`
+  in the codes to keep means every country, and any other length is a `422`. Documented, not
+  pre-validated, in line with the rest of the filter surface. **(3) `fair_usage` on errors.**
+  Every JSON error body carries it, with only `records_used` and `request_id` always set.
+  `FairUsage` already has every field optional and `_parse_fair_usage` already reads any
+  error body, so this is docstrings plus a test. **(4) 2026-10-26:**
+  `PeopleFilter.job_description` (`KeywordFilter`, on the shared filter because both
+  `search.people` and `company.tam_by_people` take it; `exclude` up to 20),
+  `JobCompanyFilter.mx` (`jobs.search` and `company.tam_by_jobs`; `jobs.company` has no
+  `company` object), and `Company.revenue_range` (`str | None`, on all four
+  company-returning endpoints). **(5) No change for `Accept-Encoding`:** `httpx` negotiates
+  the response compression. Same names and types in `blitz-api-js`.

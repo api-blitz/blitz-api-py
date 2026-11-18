@@ -146,6 +146,14 @@ def test_company_coerces_null_lists_to_empty() -> None:
     assert company.specialties == []
 
 
+def test_company_revenue_range_parses_and_keeps_null() -> None:
+    assert "revenue_range" in Company.model_fields
+    resp = CursorPage[Company].model_validate(data.COMPANY_SEARCH)
+    assert resp.results[0].revenue_range == "$10M-$50M"
+    # ``None`` is "band unknown".
+    assert Company.model_validate({"revenue_range": None}).revenue_range is None
+
+
 def test_company_mx_keeps_null_and_empty_distinct() -> None:
     # The API gives the two cases different meanings: null = no MX data for the domain yet,
     # [] = the domain takes no mail. A ``BlitzList`` would coerce null to [] and erase that, so

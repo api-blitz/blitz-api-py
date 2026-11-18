@@ -31,9 +31,10 @@ if TYPE_CHECKING:
 def _parse_fair_usage(body: Any) -> FairUsage | None:
     """Pull the ``fair_usage`` block out of an error body, if the API sent one.
 
-    The API attaches it to ``402`` responses, so a caller who runs out of records can
-    read ``next_reset_at`` off the exception. Never raises: a malformed block just
-    yields ``None`` rather than masking the original API error.
+    Since 2026-11-17 the API attaches it to every JSON error body (before, only to
+    ``402``), with ``records_used`` and ``request_id`` always set. A caller who runs out of
+    records can read ``next_reset_at`` off the exception. Never raises: a malformed block
+    just yields ``None`` rather than masking the original API error.
     """
     if not isinstance(body, dict):
         return None
@@ -98,7 +99,8 @@ class APIStatusError(BlitzError):
         message: A human-readable message extracted from the body when present.
         request_id: The value of the ``x-request-id`` response header, if any.
         fair_usage: The :class:`~blitz_api.types.FairUsage` block from the body, when
-            the API sent one (it does on ``402``); ``None`` otherwise.
+            the API sent one (it does in every JSON error body); ``None`` otherwise. On an
+            error only ``records_used`` and ``request_id`` are always set.
         response: The underlying :class:`httpx.Response`.
     """
 
