@@ -95,7 +95,7 @@ The API spec/docs are public. To inspect or refresh:
 This is the single most important fact about this codebase:
 
 - **Request bodies in the spec are richly typed** — nested objects, `required`,
-  defaults, and large `enum`s (e.g. the ~535-value `industry`). These are modeled
+  defaults, and large `enum`s (e.g. the ~536-value `industry`). These are modeled
   precisely (`TypedDict` filters + generated enums).
 - **Response bodies were example-only** when the models were written — every response
   schema was `{"type": "object", "example": {...}}` with **no `properties`**. An
@@ -152,7 +152,7 @@ src/blitz_api/
                      BlitzList (Annotated list type that coerces null->[], see §5).
     shared.py        Person, Experience, Education, Certification, Location, HQ,
                      Company.
-    enums.py         GENERATED. Industry (535) + CompanyType/EmployeeRange/Continent/
+    enums.py         GENERATED. Industry (536) + CompanyType/EmployeeRange/Continent/
                      SalesRegion/JobFunction/JobLevel/LastFundingType/Seniority/EmploymentType/
                      WorkArrangement/MxProvider (66). Never hand-edit (see §7).
     filters.py       Request TypedDicts (CompanyFilter, PeopleFilter, CascadeTier,
@@ -379,7 +379,7 @@ in 4.0.0**; `tests/test_exceptions.py` pins its absence so it is not reintroduce
 
 ## 7. Data-model specifics & known quirks
 
-- **`Industry` has 535 unique values** including upstream data-quality oddities:
+- **`Industry` has 536 unique values** including upstream data-quality oddities:
   near-duplicates (`"Airlines and Aviation"` vs `"Airlines/Aviation"`, `"Hospitals"`
   vs `"Hospitals and Health Care"`) and one double-escaped value,
   `"Women\\'s Handbag Manufacturing"` (two literal backslashes + apostrophe). These
@@ -1043,6 +1043,13 @@ the history rather than re-litigating it.
   `errors[]` and the `423` locked-account response are documented in the README rather than
   given their own exception classes; `company_distribution_by_department` counts current jobs,
   not people.
+- **2026-11-17** — Re-pulled the live spec for the enums only. `Industry` gained
+  **`Artificial Intelligence`**, in its alphabetical place, which gives 536 members with the
+  `Unknown` bucket still last. The changelog entry of 2026-11-17 announces it:
+  `company.industry` accepts the value, which returned a `422` before. Regenerated via
+  `gen_enums.py --fetch` (one added member, one cache line; the other 11 enums are
+  byte-identical). The release `publish` job fetches the live spec and fails on a stale
+  `enums.py`, so this had to land before the next release. Same change in `blitz-api-js`.
 - **2026-11-17** — Synced the 2026-10-27 and 2026-11-09 changelog entries against the live
   spec. **(1) `search.employee_finder` takes `job_title` and `job_description`**, both plain
   `KeywordFilter` keyword arguments (`include` up to 50 phrases; `job_description`'s
