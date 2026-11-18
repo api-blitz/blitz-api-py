@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.3.0](https://github.com/api-blitz/blitz-api-py/compare/v4.2.0...v4.3.0) (2026-11-18)
+
+
+### Features
+
+* add employee_finder job filters and job_duration_months ([#40](https://github.com/api-blitz/blitz-api-py/issues/40)) ([447565c](https://github.com/api-blitz/blitz-api-py/commit/447565cff93d394037814e7a0b223e257735d4f9))
+
+
+### Bug Fixes
+
+* add the Artificial Intelligence industry to the generated enums ([#39](https://github.com/api-blitz/blitz-api-py/issues/39)) ([4d41d29](https://github.com/api-blitz/blitz-api-py/commit/4d41d2923e3d219beca2c05cf9849d7c840da658))
+
 ## [4.2.0](https://github.com/api-blitz/blitz-api-py/compare/v4.1.0...v4.2.0) (2026-10-27)
 
 
