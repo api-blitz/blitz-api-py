@@ -25,6 +25,7 @@ from blitz_api.types import (
     MxProvider,
     PeopleFilter,
     PersonEnrichmentResponse,
+    SalesRegion,
     SearchPeopleFilter,
     Seniority,
     TamPeopleFilter,
@@ -284,6 +285,145 @@ def test_search_companies(httpx_mock: HTTPXMock) -> None:
     result = _client().search.companies(company={"employee_range": ["1-10"]}, max_results=1)
     assert isinstance(result, CursorPage)
     assert _sent_body(httpx_mock) == {"company": {"employee_range": ["1-10"]}, "max_results": 1}
+
+
+def test_search_people_serializes_geo_excludes_and_job_description(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(url=url("/v2/search/people"), method="POST", json=data.PEOPLE_SEARCH)
+    _client().search.people(
+        company={
+            "hq": {
+                "country_code": {"include": ["US", "CA"], "exclude": ["GB"]},
+                "continent": {"exclude": ["Antarctica"]},
+                "sales_region": {"include": [SalesRegion.NORAM]},
+            },
+        },
+        people={
+            "job_description": {"include": ["outbound prospecting"], "exclude": ["internship"]},
+            "location": {
+                "country_code": {"exclude": ["FR"]},
+                "continent": {"include": ["Europe"]},
+                "sales_region": {"exclude": [SalesRegion.APAC]},
+            },
+        },
+        max_results=1,
+    )
+    # Sent as given: a dict is not flattened into a list, and ``exclude`` is not dropped.
+    assert _sent_body(httpx_mock) == {
+        "company": {
+            "hq": {
+                "country_code": {"include": ["US", "CA"], "exclude": ["GB"]},
+                "continent": {"exclude": ["Antarctica"]},
+                "sales_region": {"include": ["NORAM"]},
+            },
+        },
+        "people": {
+            "job_description": {"include": ["outbound prospecting"], "exclude": ["internship"]},
+            "location": {
+                "country_code": {"exclude": ["FR"]},
+                "continent": {"include": ["Europe"]},
+                "sales_region": {"exclude": ["APAC"]},
+            },
+        },
+        "max_results": 1,
+    }
+
+
+async def test_async_tam_by_people_serializes_geo_excludes_and_job_description(
+    httpx_mock: HTTPXMock,
+) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/company/tam-by-people"), method="POST", json=data.TAM_BY_PEOPLE
+    )
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        await client.company.tam_by_people(
+            company={"hq": {"sales_region": {"exclude": ["LATAM"]}}},
+            people={
+                "job_description": {"include": ["Salesforce"]},
+                "location": {"country_code": {"include": ["WORLD"], "exclude": ["US"]}},
+            },
+            max_results=1,
+        )
+    assert _sent_body(httpx_mock) == {
+        "company": {"hq": {"sales_region": {"exclude": ["LATAM"]}}},
+        "people": {
+            "job_description": {"include": ["Salesforce"]},
+            "location": {"country_code": {"include": ["WORLD"], "exclude": ["US"]}},
+        },
+        "max_results": 1,
+    }
+
+
+def test_search_companies_still_sends_the_plain_list_geo_filters(httpx_mock: HTTPXMock) -> None:
+    # The legacy form: the API reads a list as ``include``. The SDK sends it unchanged.
+    httpx_mock.add_response(
+        url=url("/v2/search/companies"), method="POST", json=data.COMPANY_SEARCH
+    )
+    hq = {"country_code": ["FR", "DE"], "continent": ["Europe"], "sales_region": ["EMEA"]}
+    _client().search.companies(
+        company={
+            "hq": {"country_code": ["FR", "DE"], "continent": ["Europe"], "sales_region": ["EMEA"]}
+        },
+        max_results=1,
+    )
+    assert _sent_body(httpx_mock) == {"company": {"hq": hq}, "max_results": 1}
+
+
+def test_waterfall_icp_serializes_geo_excludes_in_a_tier_location(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/search/waterfall-icp-keyword"), method="POST", json=data.WATERFALL_ICP
+    )
+    _client().search.waterfall_icp(
+        company_linkedin_url="https://www.linkedin.com/company/openai",
+        cascade=[
+            {
+                "include_title": ["CEO"],
+                "location": {
+                    "country_code": {"exclude": ["US"]},
+                    "continent": {"include": ["Europe", "Asia"]},
+                },
+            },
+            {"include_title": ["CTO"], "location": {"country_code": ["GB"]}},
+        ],
+    )
+    assert _sent_body(httpx_mock)["cascade"] == [
+        {
+            "include_title": ["CEO"],
+            "location": {
+                "country_code": {"exclude": ["US"]},
+                "continent": {"include": ["Europe", "Asia"]},
+            },
+        },
+        {"include_title": ["CTO"], "location": {"country_code": ["GB"]}},
+    ]
+
+
+def test_jobs_search_serializes_company_mx_filter(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(url=url("/v2/jobs/search"), method="POST", json=data.JOB_SEARCH)
+    _client().jobs.search(
+        company={"mx": {"provider": {"include": [MxProvider.GOOGLE], "exclude": ["zoho"]}}},
+        max_results=1,
+    )
+    assert _sent_body(httpx_mock) == {
+        "company": {"mx": {"provider": {"include": ["google"], "exclude": ["zoho"]}}},
+        "max_results": 1,
+    }
+
+
+async def test_async_tam_by_jobs_serializes_company_mx_filter(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/company/tam-by-jobs"), method="POST", json=data.TAM_BY_JOBS
+    )
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        await client.company.tam_by_jobs(
+            job={"min_per_company": 2},
+            company={"mx": {"provider": {"include": [MxProvider.ANY]}}},
+            max_results=1,
+        )
+    assert _sent_body(httpx_mock) == {
+        "job": {"min_per_company": 2},
+        "company": {"mx": {"provider": {"include": ["any"]}}},
+        "max_results": 1,
+    }
 
 
 def test_search_companies_serializes_mx_filter(httpx_mock: HTTPXMock) -> None:

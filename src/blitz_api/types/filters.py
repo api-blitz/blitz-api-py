@@ -129,14 +129,59 @@ class RangeFilter(TypedDict, total=False):
     max: float
 
 
+class CountryCodeFilter(TypedDict, total=False):
+    """Include/exclude filter over country codes, in ``people.location``, ``company.hq`` and
+    the ``location`` of a waterfall tier.
+
+    A code is a two-letter ISO 3166-1 code such as ``"US"`` or ``"GB"``. Letter case does not
+    matter and ``"UK"`` is read as ``"GB"``. Since 2026-11-17 a value of any other length,
+    such as ``"USA"``, is rejected with a ``422`` (before, it was accepted and matched
+    nothing).
+
+    ``"WORLD"`` is the one exception: in ``include`` it means every country, so the country
+    filter is off, also when the list holds other codes. ``exclude`` does not accept it.
+
+    ``include`` never matches a record with no country on file, and ``exclude`` never drops
+    one.
+    """
+
+    include: list[str]
+    exclude: list[str]
+
+
+class ContinentFilter(TypedDict, total=False):
+    """Include/exclude filter over continents. ``exclude`` never drops a record with no
+    continent on file.
+    """
+
+    include: list[ContinentValue]
+    exclude: list[ContinentValue]
+
+
+class SalesRegionFilter(TypedDict, total=False):
+    """Include/exclude filter over sales regions. ``exclude`` never drops a record with no
+    sales region on file.
+    """
+
+    include: list[SalesRegionValue]
+    exclude: list[SalesRegionValue]
+
+
 class CompanyHQFilter(TypedDict, total=False):
-    """Headquarters-location filter for company search."""
+    """Headquarters-location filter for company search. A company must match every field
+    you set.
+
+    ``country_code``, ``continent`` and ``sales_region`` take a dict with ``include`` and
+    ``exclude`` lists (since 2026-11-17). A plain list is the legacy form, still accepted: it
+    is read as ``include``. On ``search.people`` and ``company.tam_by_people`` the excludes
+    apply to the same job as your other company filters.
+    """
 
     city: KeywordFilter
     state: KeywordFilter
-    country_code: list[str]
-    continent: list[ContinentValue]
-    sales_region: list[SalesRegionValue]
+    country_code: CountryCodeFilter | list[str]
+    continent: ContinentFilter | list[ContinentValue]
+    sales_region: SalesRegionFilter | list[SalesRegionValue]
 
 
 class CompanyFilter(TypedDict, total=False):
@@ -203,13 +248,17 @@ class PeopleJobTitleFilter(TypedDict, total=False):
 class PeopleLocationFilter(TypedDict, total=False):
     """Location filter for the people side of a people search, and for each waterfall tier
     (:class:`CascadeTier`). A person must match every field you set.
+
+    ``country_code``, ``continent`` and ``sales_region`` take a dict with ``include`` and
+    ``exclude`` lists (since 2026-11-17). A plain list is the legacy form, still accepted: it
+    is read as ``include``.
     """
 
     city: KeywordFilter
-    # Codes such as ``"FR"`` or ``"GB"`` (2-3 letters, any case).
-    country_code: list[str]
-    continent: list[ContinentValue]
-    sales_region: list[SalesRegionValue]
+    # Two-letter codes such as ``"FR"`` or ``"GB"``, any case. See :class:`CountryCodeFilter`.
+    country_code: CountryCodeFilter | list[str]
+    continent: ContinentFilter | list[ContinentValue]
+    sales_region: SalesRegionFilter | list[SalesRegionValue]
 
 
 class PeopleEducationFilter(KeywordFilter, total=False):
@@ -245,6 +294,13 @@ class PeopleFilter(TypedDict, total=False):
     """
 
     job_title: PeopleJobTitleFilter
+    # Phrases matched against the description of a job. Every word of a phrase must appear,
+    # in any order, and several phrases are OR-ed; only the first 10,000 characters of a
+    # description are searched. It applies to the same job as the job title and company
+    # filters. ``[brackets]`` give no exact match here. ``exclude`` drops a job whose
+    # description has every word of a phrase, and never drops a job with no description.
+    # ``include`` takes up to 50 phrases, ``exclude`` up to 20.
+    job_description: KeywordFilter
     job_function: list[JobFunctionValue]
     job_level: list[JobLevelValue]
     # Smallest LinkedIn connection count (0-500, ``0`` = no lower bound); above 500 is a ``422``.
@@ -351,7 +407,7 @@ class JobLocationFilter(TypedDict, total=False):
     """Location filter for a job posting (the job's location, not the company HQ)."""
 
     city: KeywordFilter
-    country_code: KeywordFilter  # ISO-3166 alpha-2 codes, matched exactly.
+    country_code: KeywordFilter  # Two-letter ISO 3166-1 codes, any case; ``UK`` reads as ``GB``.
 
 
 class DatePostedFilter(TypedDict):
@@ -429,12 +485,12 @@ class JobCompanyHQFilter(TypedDict, total=False):
 
     city: KeywordFilter
     state: KeywordFilter
-    country_code: KeywordFilter  # ISO-3166 alpha-2 codes, matched exactly.
+    country_code: KeywordFilter  # Two-letter ISO 3166-1 codes, any case; ``UK`` reads as ``GB``.
 
 
 class JobCompanyFilter(TypedDict, total=False):
-    """Company-level firmographic criteria for ``jobs.search``, matched against the
-    enriched company record behind each posting.
+    """Company-level firmographic criteria for ``jobs.search`` and ``company.tam_by_jobs``,
+    matched against the enriched company record behind each posting.
     """
 
     # ``True`` = only staffing/recruitment agencies, ``False`` = exclude confirmed
@@ -445,3 +501,5 @@ class JobCompanyFilter(TypedDict, total=False):
     size: CompanySizeFilter
     keywords: KeywordFilter
     hq: JobCompanyHQFilter
+    # Mail provider of the company, from the MX records of its domains.
+    mx: MxFilter

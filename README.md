@@ -249,6 +249,34 @@ Where the flags go depends on the route, and the API rejects a flag in the wrong
 | `search.employee_finder` | top-level argument | — |
 | `enrichment.company_distribution_by_country` / `_by_department` | top-level argument | — |
 
+### Countries, continents and sales regions
+
+`country_code`, `continent` and `sales_region` take `include` and `exclude` lists in
+`people["location"]`, in `company["hq"]` and in the `location` of a waterfall tier. `exclude`
+never drops a record with no value on file, and a plain list is still accepted and read as
+`include`. A country code has two letters, in any letter case, and `UK` is read as `GB`. A
+value of any other length is a `422`, except `WORLD` in the codes to keep, which means every
+country.
+
+```python
+# People in Europe, outside France and Germany, whose job description mentions outbound.
+page = client.search.people(
+    company={"hq": {"sales_region": {"exclude": ["APAC"]}}},
+    people={
+        "job_description": {"include": ["outbound prospecting"], "exclude": ["internship"]},
+        "location": {
+            "continent": {"include": ["Europe"]},
+            "country_code": {"exclude": ["FR", "DE"]},
+        },
+    },
+)
+```
+
+`people["job_description"]` on `search.people` and `company.tam_by_people` matches phrases
+against the description of the job (`include` up to 50 phrases, `exclude` up to 20), and
+`company["mx"]` also filters `jobs.search` and `company.tam_by_jobs`. Each company carries
+`revenue_range`, the label of its yearly revenue band (`None` when the band is unknown).
+
 `search.employee_finder` also takes `job_title` and `job_description`, each a dict with
 `include` and `exclude` lists of phrases. They are matched against the person's current job
 at the company, the same job as `job_level`, `job_function` and `is_recent_hire`. Wrap a
@@ -353,8 +381,9 @@ for page in client.search.people(people={"job_level": ["VP"]}).iter_pages(max_pa
     print(page.fair_usage.records_used if page.fair_usage else None)
 ```
 
-`InsufficientRecordsError` (`402`) carries it too, so you can see when the balance
-resets without a second call:
+Every `APIStatusError` carries the block of the error body in `err.fair_usage` (`None`
+when the body has none). On an error only `request_id` and `records_used` are always set.
+On an `InsufficientRecordsError` (`402`) it also says when the balance resets:
 
 ```python
 except InsufficientRecordsError as err:

@@ -167,6 +167,9 @@ class Company(BlitzModel):
     industry: str | None = None
     type: str | None = None
     size: str | None = None
+    #: Label of the yearly revenue band, such as ``"$10M-$50M"``. ``None`` when the band is
+    #: unknown. The ``company.revenue`` filter of ``search.companies`` matches this band.
+    revenue_range: str | None = None
     employees_on_linkedin: int | None = None
     followers: int | None = None
     founded_year: int | None = None

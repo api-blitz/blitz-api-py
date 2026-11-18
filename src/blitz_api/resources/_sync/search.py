@@ -113,7 +113,8 @@ class SearchResource:
         job with no start date never matches).
 
         Each list is capped at 50 entries, except ``job_description["exclude"]`` (20); a
-        longer one is a ``422``. ``country_code``
+        longer one is a ``422``. ``country_code`` takes two-letter ISO 3166-1 codes in any
+        letter case (``UK`` is read as ``GB``; a value of any other length is a ``422``). It
         defaults to ``["WORLD"]`` server-side: a list holding ``"WORLD"`` drops the country
         filter. ``min_connections_count`` runs 0-500 (``0`` = no lower bound).
 

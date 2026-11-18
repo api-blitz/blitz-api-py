@@ -80,6 +80,29 @@ def test_insufficient_credits_alias_is_gone() -> None:
     assert "InsufficientCreditsError" not in blitz_api.__all__
 
 
+def test_any_error_exposes_fair_usage_with_only_the_fields_sent(httpx_mock: HTTPXMock) -> None:
+    # Since 2026-11-17 every JSON error body of a /v2 endpoint carries ``fair_usage``. On an
+    # error only ``records_used`` and ``request_id`` are always there.
+    httpx_mock.add_response(
+        status_code=401,
+        json={
+            "success": False,
+            "message": "Missing API key, please provide a valid API key in the 'x-api-key' header",
+            "fair_usage": {"records_used": 0, "request_id": "019bae09-0055-7441-b2ea-16086e499219"},
+        },
+    )
+    with pytest.raises(AuthenticationError) as exc_info:
+        _client().account.key_info()
+
+    fair_usage = exc_info.value.fair_usage
+    assert fair_usage is not None
+    assert fair_usage.records_used == 0
+    assert fair_usage.request_id == "019bae09-0055-7441-b2ea-16086e499219"
+    assert fair_usage.records_remaining is None
+    assert fair_usage.next_reset_at is None
+    assert fair_usage.rate_limit is None
+
+
 def test_error_without_fair_usage_leaves_it_none(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(status_code=401, json={"message": "bad key"})
     with pytest.raises(AuthenticationError) as exc_info:

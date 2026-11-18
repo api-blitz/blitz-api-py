@@ -46,8 +46,9 @@ class FairUsageRateLimit(BlitzModel):
 class FairUsage(BlitzModel):
     """Record usage, rate limit, and tracing data for a single request.
 
-    Returned by every ``/v2`` endpoint on success, and on the ``402``
-    insufficient-balance error (:attr:`~blitz_api.APIStatusError.fair_usage`).
+    Returned by every ``/v2`` endpoint on success, and since 2026-11-17 in every JSON error
+    body (:attr:`~blitz_api.APIStatusError.fair_usage`). On an error only ``records_used``
+    and ``request_id`` are always set; the other fields can be ``None``.
     """
 
     #: Records this request consumed, after reconciliation against the results
