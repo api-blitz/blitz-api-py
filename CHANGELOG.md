@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.4.0](https://github.com/api-blitz/blitz-api-py/compare/v4.3.0...v4.4.0) (2026-11-18)
+
+
+### Features
+
+* add geo exclude filters, people job_description, jobs company.mx and revenue_range ([#42](https://github.com/api-blitz/blitz-api-py/issues/42)) ([bf2814f](https://github.com/api-blitz/blitz-api-py/commit/bf2814f6ce77baa2b13f5aa3364a6912994139a3))
+
 ## [4.3.0](https://github.com/api-blitz/blitz-api-py/compare/v4.2.0...v4.3.0) (2026-11-18)
 
 
