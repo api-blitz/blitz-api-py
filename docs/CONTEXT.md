@@ -1045,7 +1045,8 @@ the history rather than re-litigating it.
   not people.
 - **2026-11-17** — Re-pulled the live spec for the enums only. `Industry` gained
   **`Artificial Intelligence`**, in its alphabetical place, which gives 536 members with the
-  `Unknown` bucket still last. No changelog entry announces it. Regenerated via
+  `Unknown` bucket still last. The changelog entry of 2026-11-17 announces it:
+  `company.industry` accepts the value, which returned a `422` before. Regenerated via
   `gen_enums.py --fetch` (one added member, one cache line; the other 11 enums are
   byte-identical). The release `publish` job fetches the live spec and fails on a stale
   `enums.py`, so this had to land before the next release. Same change in `blitz-api-js`.
