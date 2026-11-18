@@ -58,6 +58,11 @@ class Experience(BlitzModel):
     job_start_date: str | None = None
     job_end_date: str | None = None
     job_is_current: bool | None = None
+    #: Months the person has held the position: up to the current month for a current
+    #: position, up to ``job_end_date`` for a past one. The start and end months both count,
+    #: so a position that started this month gives ``1``. ``None`` when ``job_start_date``
+    #: is missing, or when a past position has no ``job_end_date``.
+    job_duration_months: int | None = None
     #: How the role is contracted, e.g. ``"Full-time"``, ``"Contract"``, ``"Internship"``.
     job_contract_type: str | None = None
     #: Where the work is performed, e.g. ``"Remote"``, ``"Hybrid"``, ``"On-site"``.

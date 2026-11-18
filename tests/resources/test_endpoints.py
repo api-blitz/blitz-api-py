@@ -331,6 +331,45 @@ def test_employee_finder_serializes_is_recent_hire(httpx_mock: HTTPXMock) -> Non
     }
 
 
+def test_employee_finder_sends_job_title_and_job_description_as_given(
+    httpx_mock: HTTPXMock,
+) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/search/employee-finder"), method="POST", json=data.EMPLOYEE_FINDER
+    )
+    # Asymmetric lists and a bracketed phrase: brackets are the API's exact-match syntax,
+    # so they must reach the wire untouched, each filter under its own key.
+    _client().search.employee_finder(
+        company_linkedin_url="https://www.linkedin.com/company/openai",
+        job_title={"include": ["[Head of Sales]", "Account Executive"], "exclude": ["Intern"]},
+        job_description={"include": ["Salesforce"], "exclude": []},
+    )
+    assert _sent_body(httpx_mock) == {
+        "company_linkedin_url": "https://www.linkedin.com/company/openai",
+        "job_title": {"include": ["[Head of Sales]", "Account Executive"], "exclude": ["Intern"]},
+        "job_description": {"include": ["Salesforce"], "exclude": []},
+    }
+
+
+async def test_async_employee_finder_sends_job_title_and_job_description(
+    httpx_mock: HTTPXMock,
+) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/search/employee-finder"), method="POST", json=data.EMPLOYEE_FINDER
+    )
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        await client.search.employee_finder(
+            company_linkedin_url="https://www.linkedin.com/company/openai",
+            job_title={"exclude": ["Intern"]},
+            job_description={"include": ["Salesforce"]},
+        )
+    assert _sent_body(httpx_mock) == {
+        "company_linkedin_url": "https://www.linkedin.com/company/openai",
+        "job_title": {"exclude": ["Intern"]},
+        "job_description": {"include": ["Salesforce"]},
+    }
+
+
 def test_jobs_search_serializes_job_and_company_filters(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(url=url("/v2/jobs/search"), method="POST", json=data.JOB_SEARCH)
     result = _client().jobs.search(

@@ -138,7 +138,15 @@ Person(
     location=Location(city="San Francisco", state_code="CA", country_code="US", continent="North America"),
     # Only the position that matched your filters — `job_is_current` says whether it
     # is current (past jobs are searched only with `include_past_jobs`).
-    experiences=[Experience(job_title="VP of Engineering", company_name="Acme", job_is_current=True)],
+    # `job_duration_months` counts the months in the position.
+    experiences=[
+        Experience(
+            job_title="VP of Engineering",
+            company_name="Acme",
+            job_is_current=True,
+            job_duration_months=19,
+        )
+    ],
     # first_name, last_name, skills, education, certifications, … also present
 )
 ```
@@ -240,6 +248,30 @@ Where the flags go depends on the route, and the API rejects a flag in the wrong
 | `search.waterfall_icp` | key of each `cascade` tier | key of each `cascade` tier |
 | `search.employee_finder` | top-level argument | — |
 | `enrichment.company_distribution_by_country` / `_by_department` | top-level argument | — |
+
+`search.employee_finder` also takes `job_title` and `job_description`, each a dict with
+`include` and `exclude` lists of phrases. They are matched against the person's current job
+at the company, the same job as `job_level`, `job_function` and `is_recent_hire`. Wrap a
+`job_title` phrase in `[brackets]` to match the whole title exactly; `job_description` has
+no exact match. Each list takes up to 50 phrases (`job_description["exclude"]`: 20).
+
+```python
+# Sales leaders at one company whose job description mentions Salesforce, interns left out.
+employees = client.search.employee_finder(
+    company_linkedin_url="https://www.linkedin.com/company/openai",
+    job_title={"include": ["[Head of Sales]", "Account Executive"], "exclude": ["Intern"]},
+    job_description={"include": ["Salesforce"]},
+)
+for person in employees.auto_paging_iter(max_items=100):
+    job = person.experiences[0] if person.experiences else None
+    if job:
+        print(person.full_name, job.job_title, job.job_duration_months)
+```
+
+Every `experiences[]` entry carries `job_duration_months`: the number of months in the
+position, up to the current month for a current position and up to `job_end_date` for a past
+one (the start and end months both count). It is `None` when `job_start_date` is missing, or
+when a past position has no `job_end_date`.
 
 Setting both `include_*_jobs` flags to `False` is a `422`. `MxProvider.ANY` stands for
 *every* provider: in `include` it keeps companies with mail data, in `exclude` it keeps

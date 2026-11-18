@@ -465,7 +465,7 @@ uv sync                              # install runtime + dev deps
 uv run ruff check . && uv run ruff format .
 uv run mypy                          # strict; includes src, tests, scripts, examples
 uv run pyright                       # strict
-uv run pytest                        # 217 tests, sync + async
+uv run pytest                        # 219 tests, sync + async
 uv run python scripts/gen_enums.py --check   # enum drift guard
 uv run python scripts/gen_sync.py --check    # sync-client/resources drift guard
 uv build                             # sdist + wheel (wheel includes py.typed)
@@ -1050,3 +1050,18 @@ the history rather than re-litigating it.
   `gen_enums.py --fetch` (one added member, one cache line; the other 11 enums are
   byte-identical). The release `publish` job fetches the live spec and fails on a stale
   `enums.py`, so this had to land before the next release. Same change in `blitz-api-js`.
+- **2026-11-17** — Synced the 2026-10-27 and 2026-11-09 changelog entries against the live
+  spec. **(1) `search.employee_finder` takes `job_title` and `job_description`**, both plain
+  `KeywordFilter` keyword arguments (`include` up to 50 phrases; `job_description`'s
+  `exclude` up to 20). They apply to the person's current job at the company, the same job as
+  `job_level`, `job_function` and `is_recent_hire`; `[brackets]` give an exact match on
+  `job_title` only. No new type: the spec gives both objects exactly `include` / `exclude`,
+  and `PeopleJobTitleFilter` would offer `include_linkedin_headline`, which this endpoint
+  rejects with a `422`. **(2) `Experience.job_duration_months`** (`int | None`; the spec
+  types it `number | null` and requires it on all six person-returning endpoints): the months
+  in the position, start and end months both counted, `None` when `job_start_date` is missing
+  or a past position has no `job_end_date`. Additive on the shared model. Same names and
+  types in `blitz-api-js`. **Not in this change:** the three 2026-10-26 changelog entries
+  (`people.job_description` on `search.people` / `tam_by_people`, `company.mx` on
+  `jobs.search` / `tam_by_jobs`, and `revenue_range` on companies) are still to sync in both
+  SDKs.
