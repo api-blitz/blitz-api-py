@@ -17,6 +17,7 @@ from blitz_api.types import (
     CurrentDateResponse,
     EmailEnrichmentResponse,
     EmploymentType,
+    FeedbackResponse,
     Industry,
     JobFunction,
     JobLevel,
@@ -809,6 +810,38 @@ def test_waterfall_icp_serializes_job_scope_flags_per_cascade_tier(httpx_mock: H
         ],
     }
     assert not {"is_recent_hire", "include_active_jobs", "include_past_jobs"} & body.keys()
+
+
+_FEEDBACK_BODY = {
+    "subject": "Company search returns no results for French software companies",
+    "message": "POST /v2/search/companies returns 0 results. I expected about 200 companies.",
+    "contact": "jane@example.com",
+}
+
+
+def test_feedback_send(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(url=url("/v2/feedback"), method="POST", json=data.FEEDBACK)
+    result = _client().feedback.send(
+        subject=_FEEDBACK_BODY["subject"],
+        message=_FEEDBACK_BODY["message"],
+        contact=_FEEDBACK_BODY["contact"],
+    )
+    assert isinstance(result, FeedbackResponse)
+    assert result.success is True
+    assert _sent_body(httpx_mock) == _FEEDBACK_BODY
+
+
+async def test_async_feedback_send(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(url=url("/v2/feedback"), method="POST", json=data.FEEDBACK)
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        result = await client.feedback.send(
+            subject=_FEEDBACK_BODY["subject"],
+            message=_FEEDBACK_BODY["message"],
+            contact=_FEEDBACK_BODY["contact"],
+        )
+    assert isinstance(result, FeedbackResponse)
+    assert result.message == "Thanks, your feedback has been sent to the Blitz team."
+    assert _sent_body(httpx_mock) == _FEEDBACK_BODY
 
 
 def test_current_date(httpx_mock: HTTPXMock) -> None:

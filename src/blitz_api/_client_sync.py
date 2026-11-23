@@ -21,6 +21,7 @@ from .resources import (
     ChangelogResource,
     CompanyResource,
     EnrichmentResource,
+    FeedbackResource,
     JobsResource,
     SearchResource,
     UtilsResource,
@@ -189,3 +190,7 @@ class BlitzAPI(BaseClient):
     @cached_property
     def changelog(self) -> ChangelogResource:
         return ChangelogResource(self)
+
+    @cached_property
+    def feedback(self) -> FeedbackResource:
+        return FeedbackResource(self)

@@ -19,6 +19,7 @@ from blitz_api.types import (
     EmailEnrichmentResponse,
     EmailToPersonResponse,
     Experience,
+    FeedbackResponse,
     Job,
     KeyInfo,
     LinkedinToDomainResponse,
@@ -76,6 +77,15 @@ def test_fair_usage_parses_on_a_page() -> None:
     page = CursorPage[Person].model_validate(data.PEOPLE_SEARCH)
     assert page.fair_usage is not None
     assert page.fair_usage.records_used == 3
+
+
+def test_feedback_response_has_no_fair_usage() -> None:
+    # The spec's 200 schema for /v2/feedback lists only success and message, so the model
+    # is a plain BlitzModel and does not declare fair_usage.
+    resp = FeedbackResponse.model_validate(data.FEEDBACK)
+    assert resp.success is True
+    assert resp.message == "Thanks, your feedback has been sent to the Blitz team."
+    assert set(FeedbackResponse.model_fields) == {"success", "message"}
 
 
 def test_fair_usage_absent_is_none() -> None:
