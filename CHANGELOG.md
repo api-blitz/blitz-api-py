@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.5.0](https://github.com/api-blitz/blitz-api-py/compare/v4.4.0...v4.5.0) (2026-11-23)
+
+
+### Features
+
+* add feedback.send for POST /v2/feedback ([#44](https://github.com/api-blitz/blitz-api-py/issues/44)) ([a6b0a8a](https://github.com/api-blitz/blitz-api-py/commit/a6b0a8a09d62c11ecadc2afb31cce0eb85e7b553))
+
 ## [4.4.0](https://github.com/api-blitz/blitz-api-py/compare/v4.3.0...v4.4.0) (2026-11-18)
 
 
