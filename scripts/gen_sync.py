@@ -45,6 +45,7 @@ REPLACEMENTS: dict[str, str] = {
     "AsyncEnrichmentResource": "EnrichmentResource",
     "AsyncUtilsResource": "UtilsResource",
     "AsyncChangelogResource": "ChangelogResource",
+    "AsyncFeedbackResource": "FeedbackResource",
     "AsyncRateLimiter": "RateLimiter",
     "AsyncClient": "Client",
     "aclose": "close",
@@ -73,6 +74,7 @@ FILE_PAIRS: list[tuple[str, str]] = [
     ("resources/_async/enrichment.py", "resources/_sync/enrichment.py"),
     ("resources/_async/utils.py", "resources/_sync/utils.py"),
     ("resources/_async/changelog.py", "resources/_sync/changelog.py"),
+    ("resources/_async/feedback.py", "resources/_sync/feedback.py"),
     ("_rate_limit_async.py", "_rate_limit_sync.py"),
 ]
 

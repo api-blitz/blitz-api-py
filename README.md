@@ -188,7 +188,7 @@ always call the API from your backend.
 
 ## Endpoints
 
-All methods are grouped into seven namespaces:
+All methods are grouped into eight namespaces:
 
 | Namespace | Methods |
 | --- | --- |
@@ -199,6 +199,7 @@ All methods are grouped into seven namespaces:
 | `client.enrichment` | `person()`, `email()`, `phone()`, `email_to_person()`, `phone_to_person()`, `company()`, `domain_to_linkedin()`, `linkedin_to_domain()`, `company_distribution_by_country()`, `company_distribution_by_department()` |
 | `client.utils` | `current_date()` |
 | `client.changelog` | `list()` |
+| `client.feedback` | `send()` |
 
 Every method returns a typed Pydantic model (see `blitz_api.types`). Enum-backed
 filter fields (e.g. `Industry`, `JobLevel`, `Continent`) accept either an enum
@@ -359,12 +360,29 @@ nxt = page.get_next_page()        # None once exhausted
 The page types (`CursorPage`, `PageNumberPage`, and their `Async*` variants) are
 exported from `blitz_api`.
 
+### Feedback
+
+`client.feedback.send` sends a bug report, a feature request, or any other feedback to the
+Blitz team (0 records; every API key can call it, whatever endpoints the key has access
+to). `subject` (up to 200 characters), `message` (up to 4,000) and `contact` (the email
+address where the Blitz team can reach you) are all required. It returns a confirmation,
+with no ticket id and no reply:
+
+```python
+sent = client.feedback.send(
+    subject="Company search returns no results for French software companies",
+    message="POST /v2/search/companies returns 0 results (request id ...). I expected about 200 companies.",
+    contact="jane@example.com",
+)
+print(sent.success, sent.message)
+```
+
 ## Usage & rate limit (`fair_usage`)
 
 Every `/v2` response carries a `fair_usage` block: what the call cost, what's left on
 the plan, your rate-limit headroom, and a request id to quote to support. It's on every
 response model and on every page, so you can meter a long run without extra `key_info()`
-calls.
+calls. `feedback.send()` is the one `/v2` method whose response has no `fair_usage`.
 
 ```python
 result = client.enrichment.email(person_linkedin_url="https://www.linkedin.com/in/example")

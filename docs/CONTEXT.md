@@ -53,7 +53,7 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
   non-retried `APIStatusError`s (`err.body["errors"]` holds the field list), and 503 retries
   as a `ServerError`.
 
-### Endpoint → method → response model (all 21)
+### Endpoint → method → response model (all 22)
 
 | HTTP | Path | SDK method | Response model |
 | --- | --- | --- | --- |
@@ -78,6 +78,7 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
 | POST | `/v2/enrichment/company-distribution-by-department` | `enrichment.company_distribution_by_department()` | `CompanyDistributionByDepartmentResponse` |
 | POST | `/v2/utils/current-date` | `utils.current_date()` | `CurrentDateResponse` |
 | GET | `/changelog/` | `changelog.list()` | `list[ChangelogEntry]` |
+| POST | `/v2/feedback` | `feedback.send()` | `FeedbackResponse` |
 
 ### How to re-derive the API surface (IMPORTANT)
 
@@ -166,6 +167,7 @@ src/blitz_api/
     company.py       TamByJobsMatch / TamByPeopleMatch (both TAM builders are paginated,
                      so they return the page class below, not a per-endpoint model)
     utils.py         CurrentDateResponse
+    feedback.py      FeedbackResponse (a plain BlitzModel: the spec gives it no fair_usage)
     __init__.py      Re-exports the public type surface (grouped).
   _pagination_base.py   BasePage — shared pagination state/context + _bind (no async).
   _pagination_async.py  AsyncPaginator/AsyncCursorPage/AsyncPageNumberPage. HAND-WRITTEN SOURCE.
@@ -1087,3 +1089,21 @@ the history rather than re-litigating it.
   `company` object), and `Company.revenue_range` (`str | None`, on all four
   company-returning endpoints). **(5) No change for `Accept-Encoding`:** `httpx` negotiates
   the response compression. Same names and types in `blitz-api-js`.
+- **2026-11-23** — Added `feedback.send()` (`POST /v2/feedback`, changelog 2026-11-20), in a
+  new `client.feedback` namespace: the spec gives it its own `Feedback` tag, so its own
+  module (`resources/_async/feedback.py`, sync generated; `gen_sync.py` gained the
+  `AsyncFeedbackResource` rename and the file pair). The path has one segment, so the method
+  name comes from the spec summary "Send Feedback", the same way `/changelog/` became
+  `changelog.list()`; same name in `blitz-api-js`. **Request:** three required keyword args,
+  `subject` (1–200 characters), `message` (1–4,000) and `contact` (an email address, up to
+  200); no `TypedDict`, since the body has no nested filters (the §10 playbook, like
+  `email_to_person`). The spec closes the object. The limits and the email format are
+  documented, not enforced, so the server's `422` stays the one source of truth. Costs 0
+  records, and every API key can call it, whatever routes the key has access to.
+  **Response:** `FeedbackResponse` `{success, message}`, a confirmation with no ticket id and
+  no reply. **It subclasses `BlitzModel`, not `BlitzResponse`:** the spec's `200` schema is
+  closed and lists only those two keys, the only `/v2` success body without `fair_usage`
+  (its `401` and `429` bodies carry it as usual, so `APIStatusError.fair_usage` works there).
+  A `fair_usage` field would promise a key the spec says cannot come back; if the API ever
+  adds it, `extra="allow"` keeps it. A test pins the field set. Same model and fields in
+  `blitz-api-js`. No live call was made: a call would send real feedback to the Blitz team.

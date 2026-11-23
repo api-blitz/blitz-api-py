@@ -41,6 +41,7 @@ from .enums import (
     Seniority,
     WorkArrangement,
 )
+from .feedback import FeedbackResponse
 from .filters import (
     CascadeTier,
     CompanyFilter,
@@ -164,6 +165,8 @@ __all__ = [
     "ChangelogLink",
     "ChangelogEntry",
     "ChangelogResponse",
+    # feedback
+    "FeedbackResponse",
     # enrichment
     "PersonEnrichmentResponse",
     "EmailMatch",

@@ -283,6 +283,12 @@ CURRENT_DATE: dict[str, Any] = {
     "timezone_name": "(GMT-05:00) New York",
 }
 
+#: Result of ``feedback.send``: the live spec's example. It carries no ``fair_usage`` block.
+FEEDBACK: dict[str, Any] = {
+    "success": True,
+    "message": "Thanks, your feedback has been sent to the Blitz team.",
+}
+
 COUNTRY_DISTRIBUTION: dict[str, Any] = {
     "found": True,
     "company_linkedin_url": "https://www.linkedin.com/company/openai",
