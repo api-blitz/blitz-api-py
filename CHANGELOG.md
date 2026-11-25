@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.6.0](https://github.com/api-blitz/blitz-api-py/compare/v4.5.0...v4.6.0) (2026-11-25)
+
+
+### Features
+
+* add identity.person_match and identity.company_match ([#46](https://github.com/api-blitz/blitz-api-py/issues/46)) ([538140a](https://github.com/api-blitz/blitz-api-py/commit/538140ae2f69efee8b0d30187092a0711a455321))
+
 ## [4.5.0](https://github.com/api-blitz/blitz-api-py/compare/v4.4.0...v4.5.0) (2026-11-23)
 
 
