@@ -14,6 +14,7 @@ from blitz_api.types import (
     CompanyDistributionByCountryResponse,
     CompanyDistributionByDepartmentResponse,
     CompanyEnrichmentResponse,
+    CompanyMatchResponse,
     CurrentDateResponse,
     EmailEnrichmentResponse,
     EmploymentType,
@@ -26,6 +27,7 @@ from blitz_api.types import (
     MxProvider,
     PeopleFilter,
     PersonEnrichmentResponse,
+    PersonMatchResponse,
     SalesRegion,
     SearchPeopleFilter,
     Seniority,
@@ -810,6 +812,62 @@ def test_waterfall_icp_serializes_job_scope_flags_per_cascade_tier(httpx_mock: H
         ],
     }
     assert not {"is_recent_hire", "include_active_jobs", "include_past_jobs"} & body.keys()
+
+
+def test_person_match_sends_only_the_fields_given(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/identity/person-match"), method="POST", json=data.PERSON_MATCH
+    )
+    result = _client().identity.person_match(
+        last_name="Durand",
+        first_name="Marie",
+        company_domain="acme.com",
+        job_title=["Head of Finance", "Contrôleuse de gestion"],
+        keywords=["fintech"],
+    )
+    assert isinstance(result, PersonMatchResponse)
+    assert result.match is not None
+    assert result.match.full_name == "Marie Durand"
+    assert _sent_body(httpx_mock) == {
+        "last_name": "Durand",
+        "first_name": "Marie",
+        "company_domain": "acme.com",
+        "job_title": ["Head of Finance", "Contrôleuse de gestion"],
+        "keywords": ["fintech"],
+    }
+
+
+async def test_async_person_match(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/identity/person-match"), method="POST", json=data.PERSON_MATCH
+    )
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        result = await client.identity.person_match(last_name="Durand", job_title="CFO")
+    assert isinstance(result, PersonMatchResponse)
+    assert result.status == "matched"
+    assert _sent_body(httpx_mock) == {"last_name": "Durand", "job_title": "CFO"}
+
+
+def test_company_match_sends_only_the_fields_given(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/identity/company-match"), method="POST", json=data.COMPANY_MATCH_AMBIGUOUS
+    )
+    result = _client().identity.company_match(company_domain="acme.com", location="Lyon, France")
+    assert isinstance(result, CompanyMatchResponse)
+    assert result.status == "ambiguous"
+    assert result.match is None
+    assert _sent_body(httpx_mock) == {"company_domain": "acme.com", "location": "Lyon, France"}
+
+
+async def test_async_company_match(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=url("/v2/identity/company-match"), method="POST", json=data.COMPANY_MATCH_AMBIGUOUS
+    )
+    async with AsyncBlitzAPI(api_key=TEST_KEY, rate_limit_rps=None) as client:
+        result = await client.identity.company_match(company_name="Acme")
+    assert isinstance(result, CompanyMatchResponse)
+    assert result.candidates[0].name == "Acme"
+    assert _sent_body(httpx_mock) == {"company_name": "Acme"}
 
 
 _FEEDBACK_BODY = {

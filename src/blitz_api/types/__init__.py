@@ -74,6 +74,13 @@ from .filters import (
     TamPeopleFilter,
     WorkArrangementFilter,
 )
+from .identity import (
+    CompanyMatch,
+    CompanyMatchResponse,
+    MatchPastExperience,
+    PersonMatch,
+    PersonMatchResponse,
+)
 from .jobs import Job
 from .search import (
     WaterfallIcpMatch,
@@ -167,6 +174,12 @@ __all__ = [
     "ChangelogResponse",
     # feedback
     "FeedbackResponse",
+    # identity
+    "PersonMatch",
+    "PersonMatchResponse",
+    "MatchPastExperience",
+    "CompanyMatch",
+    "CompanyMatchResponse",
     # enrichment
     "PersonEnrichmentResponse",
     "EmailMatch",

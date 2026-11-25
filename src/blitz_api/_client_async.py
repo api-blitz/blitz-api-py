@@ -20,6 +20,7 @@ from .resources import (
     AsyncCompanyResource,
     AsyncEnrichmentResource,
     AsyncFeedbackResource,
+    AsyncIdentityResource,
     AsyncJobsResource,
     AsyncSearchResource,
     AsyncUtilsResource,
@@ -192,3 +193,7 @@ class AsyncBlitzAPI(BaseClient):
     @cached_property
     def feedback(self) -> AsyncFeedbackResource:
         return AsyncFeedbackResource(self)
+
+    @cached_property
+    def identity(self) -> AsyncIdentityResource:
+        return AsyncIdentityResource(self)
