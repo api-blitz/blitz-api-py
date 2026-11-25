@@ -11,6 +11,7 @@ from ._async.changelog import AsyncChangelogResource
 from ._async.company import AsyncCompanyResource
 from ._async.enrichment import AsyncEnrichmentResource
 from ._async.feedback import AsyncFeedbackResource
+from ._async.identity import AsyncIdentityResource
 from ._async.jobs import AsyncJobsResource
 from ._async.search import AsyncSearchResource
 from ._async.utils import AsyncUtilsResource
@@ -19,6 +20,7 @@ from ._sync.changelog import ChangelogResource
 from ._sync.company import CompanyResource
 from ._sync.enrichment import EnrichmentResource
 from ._sync.feedback import FeedbackResource
+from ._sync.identity import IdentityResource
 from ._sync.jobs import JobsResource
 from ._sync.search import SearchResource
 from ._sync.utils import UtilsResource
@@ -40,4 +42,6 @@ __all__ = [
     "AsyncChangelogResource",
     "FeedbackResource",
     "AsyncFeedbackResource",
+    "IdentityResource",
+    "AsyncIdentityResource",
 ]

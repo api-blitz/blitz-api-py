@@ -13,6 +13,7 @@ from blitz_api.types import (
     CompanyDistributionByCountryResponse,
     CompanyDistributionByDepartmentResponse,
     CompanyEnrichmentResponse,
+    CompanyMatchResponse,
     CurrentDateResponse,
     DomainToLinkedinResponse,
     Education,
@@ -26,6 +27,7 @@ from blitz_api.types import (
     MxRecord,
     Person,
     PersonEnrichmentResponse,
+    PersonMatchResponse,
     PhoneEnrichmentResponse,
     PhoneToPersonResponse,
     TamByJobsMatch,
@@ -86,6 +88,33 @@ def test_feedback_response_has_no_fair_usage() -> None:
     assert resp.success is True
     assert resp.message == "Thanks, your feedback has been sent to the Blitz team."
     assert set(FeedbackResponse.model_fields) == {"success", "message"}
+
+
+def test_person_match_matched() -> None:
+    resp = PersonMatchResponse.model_validate(data.PERSON_MATCH)
+    assert resp.status == "matched"
+    assert resp.match is not None
+    assert resp.match.confidence == 0.96
+    assert resp.match.location is not None
+    assert resp.match.location.state_code == "MI"
+    assert [(e.company_name, e.job_title) for e in resp.match.past_experiences] == [
+        ("Acme", "Contrôleuse de gestion")
+    ]
+    assert resp.candidates == []
+    assert resp.fair_usage is not None
+    assert resp.fair_usage.records_used == 1
+
+
+def test_company_match_ambiguous_has_no_match_and_hq_locations() -> None:
+    resp = CompanyMatchResponse.model_validate(data.COMPANY_MATCH_AMBIGUOUS)
+    assert resp.status == "ambiguous"
+    assert resp.match is None
+    assert len(resp.candidates) == 1
+    location = resp.candidates[0].location
+    assert location is not None
+    assert location.state == "Uttar Pradesh"
+    assert location.country_name == "India"
+    assert location.model_extra == {}
 
 
 def test_fair_usage_absent_is_none() -> None:

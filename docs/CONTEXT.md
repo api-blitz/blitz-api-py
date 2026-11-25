@@ -53,7 +53,7 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
   non-retried `APIStatusError`s (`err.body["errors"]` holds the field list), and 503 retries
   as a `ServerError`.
 
-### Endpoint → method → response model (all 22)
+### Endpoint → method → response model (all 24)
 
 | HTTP | Path | SDK method | Response model |
 | --- | --- | --- | --- |
@@ -79,6 +79,8 @@ Distribution name: **`blitz-api-py`** (PyPI). Import name: **`blitz_api`**.
 | POST | `/v2/utils/current-date` | `utils.current_date()` | `CurrentDateResponse` |
 | GET | `/changelog/` | `changelog.list()` | `list[ChangelogEntry]` |
 | POST | `/v2/feedback` | `feedback.send()` | `FeedbackResponse` |
+| POST | `/v2/identity/person-match` | `identity.person_match()` | `PersonMatchResponse` |
+| POST | `/v2/identity/company-match` | `identity.company_match()` | `CompanyMatchResponse` |
 
 ### How to re-derive the API surface (IMPORTANT)
 
@@ -168,6 +170,8 @@ src/blitz_api/
                      so they return the page class below, not a per-endpoint model)
     utils.py         CurrentDateResponse
     feedback.py      FeedbackResponse (a plain BlitzModel: the spec gives it no fair_usage)
+    identity.py      PersonMatchResponse / CompanyMatchResponse + PersonMatch, CompanyMatch,
+                     MatchPastExperience
     __init__.py      Re-exports the public type surface (grouped).
   _pagination_base.py   BasePage — shared pagination state/context + _bind (no async).
   _pagination_async.py  AsyncPaginator/AsyncCursorPage/AsyncPageNumberPage. HAND-WRITTEN SOURCE.
@@ -1107,3 +1111,29 @@ the history rather than re-litigating it.
   A `fair_usage` field would promise a key the spec says cannot come back; if the API ever
   adds it, `extra="allow"` keeps it. A test pins the field set. Same model and fields in
   `blitz-api-js`. No live call was made: a call would send real feedback to the Blitz team.
+- **2026-11-25** — Added `identity.person_match()` (`POST /v2/identity/person-match`) and
+  `identity.company_match()` (`POST /v2/identity/company-match`), changelog 2026-11-25, in a
+  new `client.identity` namespace (`resources/_async/identity.py`, sync generated;
+  `gen_sync.py` gained the `AsyncIdentityResource` rename and the file pair). The namespace is
+  the path group, and the method names are the path's last segment with the hyphen as an
+  underscore; same names in `blitz-api-js`. **Requests:** keyword args, no `TypedDict`, since
+  the bodies have no nested filters (the §10 playbook, like `feedback.send`). `person_match`
+  needs `last_name` and takes `first_name`, `company_name`, `company_domain`,
+  `company_linkedin_url`, `job_title` (`str | list[str]`, up to 10), `keywords` (up to 20)
+  and `location`. `company_match` takes `company_name`, `company_domain`,
+  `company_linkedin_url`, `keywords` and `location`, all optional; the API needs at least one
+  of the first three. The spec closes both objects and types no field as nullable, so it
+  matters that `to_jsonable` drops the unset `None`s (a test pins the exact body). The "at
+  least one" rule and the length limits are documented, not enforced, so the server's `422`
+  stays the one source of truth. **Responses:** `PersonMatchResponse` /
+  `CompanyMatchResponse` (`BlitzResponse`): `status`, `match` (`None` unless `status` is
+  `matched`) and `candidates` (up to 10). `status` is a loose `str` with its three values
+  (`matched`, `ambiguous`, `not_found`) in the docstring, the `ChangelogEntry.type` posture,
+  so a new value never breaks parsing; it is a response enum, so `gen_enums.py` (request
+  properties only) does not emit it. The items are the new `PersonMatch` (`linkedin_url`,
+  `full_name`, `job_title`, `company_name`, `location` as the shared `Location`,
+  `confidence`, `past_experiences` of `MatchPastExperience` `{company_name, job_title}`) and
+  `CompanyMatch` (`linkedin_url`, `name`, `domain`, `industry`, `size`, `location` as the
+  shared `HQ`, whose six spec keys it carries, `confidence`). Cost: 1 record for `matched`
+  or `ambiguous`, 0 for `not_found`. Same models and fields in `blitz-api-js`. No live call
+  was made; the fixtures use the spec's property examples.

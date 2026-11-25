@@ -188,7 +188,7 @@ always call the API from your backend.
 
 ## Endpoints
 
-All methods are grouped into eight namespaces:
+All methods are grouped into nine namespaces:
 
 | Namespace | Methods |
 | --- | --- |
@@ -200,6 +200,7 @@ All methods are grouped into eight namespaces:
 | `client.utils` | `current_date()` |
 | `client.changelog` | `list()` |
 | `client.feedback` | `send()` |
+| `client.identity` | `person_match()`, `company_match()` |
 
 Every method returns a typed Pydantic model (see `blitz_api.types`). Enum-backed
 filter fields (e.g. `Industry`, `JobLevel`, `Continent`) accept either an enum
@@ -375,6 +376,28 @@ sent = client.feedback.send(
     contact="jane@example.com",
 )
 print(sent.success, sent.message)
+```
+
+The two `client.identity` methods find the person behind a name, or the company behind a
+name, a domain or a LinkedIn URL. Each returns a `status` of `matched` (the answer is in
+`match`, with a `confidence` from 0 to 1), `ambiguous` (choose among up to 10
+`candidates`) or `not_found`. 1 record for `matched` or `ambiguous`, 0 records for
+`not_found`. `person_match` needs `last_name`; `company_match` needs at least one of
+`company_name`, `company_domain` and `company_linkedin_url`:
+
+```python
+person = client.identity.person_match(
+    last_name="Durand",
+    first_name="Marie",
+    company_domain="acme.com",
+    job_title="Head of Finance",
+)
+if person.status == "matched" and person.match is not None:
+    print(person.match.linkedin_url, person.match.confidence)
+
+company = client.identity.company_match(company_name="Acme", location="Lyon, France")
+for c in company.candidates:
+    print(c.name, c.domain, c.confidence)
 ```
 
 ## Usage & rate limit (`fair_usage`)

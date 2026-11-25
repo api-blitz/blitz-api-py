@@ -1,0 +1,122 @@
+"""The Identity resource: ``client.identity``."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from ..._compat import TimeoutParam
+from ...types.identity import CompanyMatchResponse, PersonMatchResponse
+
+if TYPE_CHECKING:
+    from ..._client import AsyncBlitzAPI
+
+_PERSON_MATCH = "/v2/identity/person-match"
+_COMPANY_MATCH = "/v2/identity/company-match"
+
+
+class AsyncIdentityResource:
+    def __init__(self, client: AsyncBlitzAPI) -> None:
+        self._client = client
+
+    async def person_match(
+        self,
+        *,
+        last_name: str,
+        first_name: str | None = None,
+        company_name: str | None = None,
+        company_domain: str | None = None,
+        company_linkedin_url: str | None = None,
+        job_title: str | list[str] | None = None,
+        keywords: list[str] | None = None,
+        location: str | None = None,
+        timeout: TimeoutParam = None,
+    ) -> PersonMatchResponse:
+        """Find the person behind a name.
+
+        Each field you add makes the answer more exact; the company fields help the most,
+        and past jobs are always searched. Returns ``matched`` with the person in ``match``,
+        ``ambiguous`` with up to 10 ``candidates``, or ``not_found``. The API bills
+        **1 record** for ``matched`` or ``ambiguous``, and 0 records for ``not_found``.
+
+        Args:
+            last_name: Last name, 1 to 100 characters. An initial (``D.``) is accepted.
+                Hyphens, apostrophes, particles (van der, de la), suffixes (Jr, PhD) and
+                typos are tolerated.
+            first_name: First name, 1 to 100 characters. Accents, nicknames (Bob for
+                Robert), typos and an initial are tolerated.
+            company_name: Name of a company the person works or worked at, 1 to 200
+                characters, compared with the current and the past companies of the
+                profile. A domain typed here is read as ``company_domain``.
+            company_domain: Web domain of that company. A full URL is reduced to its
+                domain. A domain that does not match lowers the confidence; it does not
+                exclude the person.
+            company_linkedin_url: LinkedIn page URL of that company. The match is exact.
+            job_title: One job title, or a list of up to 10 (1 to 200 characters each),
+                compared with the current and the past job titles; the best one counts.
+            keywords: Up to 20 words (1 to 100 characters each) looked for in the headline,
+                the about text, the job descriptions and the skills. They tell candidates
+                apart; they never exclude one.
+            location: City, region or country of the person, such as ``Lyon, France``.
+        """
+        return await self._client._request(
+            "POST",
+            _PERSON_MATCH,
+            body={
+                "last_name": last_name,
+                "first_name": first_name,
+                "company_name": company_name,
+                "company_domain": company_domain,
+                "company_linkedin_url": company_linkedin_url,
+                "job_title": job_title,
+                "keywords": keywords,
+                "location": location,
+            },
+            cast_to=PersonMatchResponse,
+            timeout=timeout,
+        )
+
+    async def company_match(
+        self,
+        *,
+        company_name: str | None = None,
+        company_domain: str | None = None,
+        company_linkedin_url: str | None = None,
+        keywords: list[str] | None = None,
+        location: str | None = None,
+        timeout: TimeoutParam = None,
+    ) -> CompanyMatchResponse:
+        """Find a company from its name, domain or LinkedIn page URL.
+
+        Give at least one of ``company_name``, ``company_domain`` and
+        ``company_linkedin_url``; the API answers ``422`` otherwise. The domain is the most
+        reliable field. Returns ``matched`` with the company in ``match``, ``ambiguous`` with
+        up to 10 ``candidates``, or ``not_found``. The API bills **1 record** for ``matched``
+        or ``ambiguous``, and 0 records for ``not_found``.
+
+        Args:
+            company_name: Name of the company, 1 to 200 characters. Legal suffixes (Inc,
+                LLC, GmbH), accents, punctuation and small typos are tolerated. A domain
+                typed here is read as ``company_domain``.
+            company_domain: Web domain of the company. A full URL is reduced to its domain.
+                When several pages share the domain, the answer is ``ambiguous`` and lists
+                them, unless a ``location`` agrees with the first page.
+            company_linkedin_url: LinkedIn page URL of the company. The match is exact.
+            keywords: Up to 20 words (1 to 100 characters each) looked for in the about
+                text, the industry and the specialties. They tell candidates apart; they
+                never exclude one.
+            location: City, region or country of the headquarters, such as
+                ``Lyon, France``.
+        """
+        return await self._client._request(
+            "POST",
+            _COMPANY_MATCH,
+            body={
+                "company_name": company_name,
+                "company_domain": company_domain,
+                "company_linkedin_url": company_linkedin_url,
+                "keywords": keywords,
+                "location": location,
+            },
+            cast_to=CompanyMatchResponse,
+            timeout=timeout,
+        )
