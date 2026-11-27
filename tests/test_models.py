@@ -30,6 +30,7 @@ from blitz_api.types import (
     PersonMatchResponse,
     PhoneEnrichmentResponse,
     PhoneToPersonResponse,
+    SearchLimit,
     TamByJobsMatch,
     TamByPeopleMatch,
     WaterfallIcpResponse,
@@ -44,6 +45,10 @@ def test_key_info_parses() -> None:
     assert info.max_requests_per_seconds == 5
     assert info.allowed_apis == ["/enrichment/email", "/search/people"]
     assert info.active_plans[0].name == "Unlimited Leads"
+    assert [type(limit) for limit in info.limits] == [SearchLimit, SearchLimit]
+    assert [
+        (limit.path, limit.max_results_per_page, limit.max_results_total) for limit in info.limits
+    ] == [("/search/people", 50, 50000), ("/jobs/search", 100, "unlimited")]
 
 
 def test_key_info_parses_unlimited_records() -> None:
@@ -51,6 +56,8 @@ def test_key_info_parses_unlimited_records() -> None:
     info = KeyInfo.model_validate(data.KEY_INFO_UNLIMITED)
     assert info.records_remaining == "unlimited"
     assert info.max_requests_per_seconds == "unlimited"
+    # A response without ``limits`` still parses, to an empty list.
+    assert info.limits == []
 
 
 def test_key_info_fair_usage_has_no_rate_limit() -> None:
