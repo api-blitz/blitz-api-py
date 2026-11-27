@@ -60,6 +60,9 @@ with BlitzAPI() as client:
     # Health-check the key before a batch job.
     info = client.account.key_info()
     print(info.valid, info.records_remaining, info.max_requests_per_seconds)
+    # Result limits per search endpoint: page size and total across all pages.
+    for limit in info.limits:
+        print(limit.path, limit.max_results_per_page, limit.max_results_total)
 
     # LinkedIn profile URL -> verified work email.
     email = client.enrichment.email(
@@ -314,10 +317,12 @@ SDK fetches each subsequent page for you. `search.people`/`search.companies`,
 `jobs.search`/`jobs.company` and `company.tam_by_jobs`/`company.tam_by_people` are
 cursor-based; `search.employee_finder` is page-based — all behave identically here.
 
-> **`max_results` is the page size, not a total.** It's results per page, and the API
+> **`max_results` is the page size, not a total.** It's results per page (up to 50, or your
+> plan's `max_results_per_page` from `key_info().limits`), and the API
 > **bills 1 record per result returned**. A bare `for person in client.search.people(...)`
-> loop streams *every* match up to the server-side limit (people: 50k results / 1k pages;
-> employee finder: 10k; jobs: 5k), which can be a lot of records. Bound it with **`max_items`** on
+> loop streams *every* match up to the server-side limit (by default people / companies /
+> TAM: 50k results; employee finder: 10k; jobs: 5k; your plan's values are
+> `max_results_total` in `key_info().limits`), which can be a lot of records. Bound it with **`max_items`** on
 > `.collect()` / `.auto_paging_iter()` (a client-side total cap — never sent on the wire),
 > `break` out of the loop, or drive pages manually.
 

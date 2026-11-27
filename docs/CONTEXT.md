@@ -161,7 +161,7 @@ src/blitz_api/
     filters.py       Request TypedDicts (CompanyFilter, PeopleFilter, CascadeTier,
                      TamJobFilter, TamPeopleFilter, ...)
                      and *Value type aliases (e.g. IndustryValue = Industry | str).
-    account.py       KeyInfo, ActivePlan
+    account.py       KeyInfo, ActivePlan, SearchLimit
     search.py        WaterfallIcpResponse, WaterfallIcpMatch (the paginated search results
                      return the page classes below, not per-endpoint models)
     enrichment.py    8 enrichment response models + EmailMatch + the two company-distribution
@@ -1137,3 +1137,13 @@ the history rather than re-litigating it.
   shared `HQ`, whose six spec keys it carries, `confidence`). Cost: 1 record for `matched`
   or `ambiguous`, 0 for `not_found`. Same models and fields in `blitz-api-js`. No live call
   was made; the fixtures use the spec's property examples.
+- **2026-11-27** — Added `KeyInfo.limits` (changelog 2026-11-27, "Your plan can set how many
+  results a search returns across all pages"): a list of the new `SearchLimit` model (`path`,
+  `max_results_per_page`, `max_results_total` as `float | Literal["unlimited"]`, since the spec
+  types it `number | "unlimited"`), one entry per search endpoint, defaulting to `[]`. Same
+  names in `blitz-api-js`. The same version raised the spec's `max_results` maximum on the seven
+  paginated endpoints from 50 to 10000: the per-page limit is now 50 or the plan's
+  `max_results_per_page`. The SDK never enforced the 50, so only the README changed; the
+  server's `422` stays the one source of truth. The other 2026-11-27 entries need no SDK change:
+  the TAM fix (the last page now returns a `None` cursor) only makes the cursor page stop one
+  request earlier, the refund change is server side, and the MCP change is outside the SDK.

@@ -8,7 +8,7 @@ Import response models and request filters from here, e.g.::
 from __future__ import annotations
 
 from ._models import FairUsage, FairUsageRateLimit
-from .account import ActivePlan, KeyInfo
+from .account import ActivePlan, KeyInfo, SearchLimit
 from .changelog import ChangelogEntry, ChangelogLink, ChangelogResponse
 from .company import TamByJobsMatch, TamByPeopleMatch
 from .enrichment import (
@@ -160,6 +160,7 @@ __all__ = [
     # account
     "KeyInfo",
     "ActivePlan",
+    "SearchLimit",
     # search (paginated results return the page classes exported from `blitz_api`)
     "WaterfallIcpMatch",
     "WaterfallIcpResponse",
