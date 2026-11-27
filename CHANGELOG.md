@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.7.0](https://github.com/api-blitz/blitz-api-py/compare/v4.6.0...v4.7.0) (2026-11-27)
+
+
+### Features
+
+* add limits to account.key_info() ([#48](https://github.com/api-blitz/blitz-api-py/issues/48)) ([a79c815](https://github.com/api-blitz/blitz-api-py/commit/a79c81528cea653cc1a4d16912994bc01b1e3172))
+
 ## [4.6.0](https://github.com/api-blitz/blitz-api-py/compare/v4.5.0...v4.6.0) (2026-11-25)
 
 
